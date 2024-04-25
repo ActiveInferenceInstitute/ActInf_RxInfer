@@ -104,8 +104,6 @@ function step(mdp::MDP, obs::Observation, opposite_actions::Array{Int, 1})
     prior = log.(prior)
     mdp.sQ = softmax(prior)
 
-    println(mdp.sQ)
-
     # action inference
     SCALE = 10
     neg_efe = zeros(mdp.num_actions, 1)
@@ -124,8 +122,6 @@ function step(mdp::MDP, obs::Observation, opposite_actions::Array{Int, 1})
 
     # action selection
     mdp.uQ = softmax(neg_efe)
-
-
     dist = Multinomial(1, mdp.uQ[:, 1])
     sample = rand(mdp.rng, dist)
     action = findfirst(sample .== 1)
