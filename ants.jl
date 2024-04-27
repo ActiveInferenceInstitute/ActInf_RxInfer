@@ -98,8 +98,6 @@ end
 function step(mdp::MDP, obs::Observation, opposite_actions::Array{Int, 1})
     # state inference
     obs_idx = obs + 1
-    likelihood = mdp.lnA[obs_idx, :]
-    likelihood = reshape(likelihood, (size(likelihood, 1), 1))
     prior = mdp.B[mdp.prev_action, :, :] * mdp.sQ
     prior = log.(prior)
     mdp.sQ = softmax(prior)
@@ -190,7 +188,7 @@ end
 
 
 mutable struct AntTMazeEnv
-    cells::Array{Int8, 2}
+    cells::Array{Observation, 2}
     config::AntTMazeEnvConfig
     function AntTMazeEnv(config)
         cells = zeros(config.grid_dims...)
