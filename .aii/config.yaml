@@ -1,0 +1,43 @@
+# AII sidecar — InstituteOS metadata. Schema: instituteos.platform.aii_sidecar
+meta:
+  updated: '2026-06-30'
+repo:
+  name: ActInf_RxInfer
+  slug: actinf-rxinfer
+  full_name: ActiveInferenceInstitute/ActInf_RxInfer
+  description: Active Inference and RxInfer.jl
+institute:
+  category: research-software
+  steward: Active Inference Institute
+ecosystem:
+  relations:
+  - repo: ActiveInferenceInstitute/InstituteOS
+    relation: referenced-by
+    note: Federated via the InstituteOS .aii manifest.
+  - repo: ActiveInferenceInstitute/Active_Inference_Ontology
+    note: Uses Active Inference Ontology terms.
+  links:
+    github: https://github.com/ActiveInferenceInstitute/ActInf_RxInfer
+    website: https://www.activeinference.org
+artifacts:
+- path: README.md
+  kind: doc
+  description: Repository overview.
+- path: LICENSE
+  kind: doc
+  description: License.
+provenance:
+  license: MIT
+  citation:
+    text: Active Inference Institute — ActInf_RxInfer.
+instituteos:
+  tags:
+  - actinf
+  - rxinfer
+  - inference
+capabilities:
+- documentation
+tasks:
+  inventory:
+    cmd: git ls-files
+    description: List tracked files.
