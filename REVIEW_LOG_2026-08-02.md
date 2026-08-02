@@ -73,7 +73,8 @@ Commits (chronological; see `git log` for full hashes):
 | `828b3e4` | `docs: add review log and scoped TO-DO for docs-deep pass` |
 | `dcb41ea` | `chore: add Julia package metadata and compatibility bounds` |
 | `70dbd3a` | `docs: add repository guides and contribution metadata` |
-| pending | `docs: finalize TO-DO and review log (completed markers + references)` |
+| `cd6bbf4` | `docs: finalize review findings and verification record` |
+| `80cfcc2` | `docs: mark phase-4 verification complete` |
 
 Notes:
 - Heavy Julia work (full `Pkg.instantiate()`, running RxInfer models, precompilation) was intentionally NOT run — per pass guidance for Julia repos. Compat bounds are grounded in a registry resolution probe only.
