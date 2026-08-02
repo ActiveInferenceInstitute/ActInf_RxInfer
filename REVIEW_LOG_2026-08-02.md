@@ -70,12 +70,10 @@ Commits (chronological; see `git log` for full hashes):
 
 | Commit | Contents |
 | --- | --- |
-| 1 | `docs:` add review log and scoped TO-DO (this file, TO-DO.md) |
-| 2 | `chore:` harden Project.toml with package metadata and compat bounds |
-| 3 | `docs:` rewrite README with overview, quickstart, and verified links |
-| 4 | `docs:` add docs/ index, getting-started guide, and resources |
-| 5 | `docs:` add CITATION.cff, CONTRIBUTING.md, SECURITY.md, AGENTS.md |
-| 6 | `docs:` finalize TO-DO and review log (completed markers + references) |
+| `828b3e4` | `docs: add review log and scoped TO-DO for docs-deep pass` |
+| `dcb41ea` | `chore: add Julia package metadata and compatibility bounds` |
+| `70dbd3a` | `docs: add repository guides and contribution metadata` |
+| pending | `docs: finalize TO-DO and review log (completed markers + references)` |
 
 Notes:
 - Heavy Julia work (full `Pkg.instantiate()`, running RxInfer models, precompilation) was intentionally NOT run — per pass guidance for Julia repos. Compat bounds are grounded in a registry resolution probe only.
@@ -83,7 +81,7 @@ Notes:
 
 ## Phase 4 — Verification & push
 
-- [ ] Final link/status sweep of changed files
+- [x] Final link/status sweep of changed files (relative links, YAML/CFF parsing, stale-domain scan, `git diff --check`, Julia resolution)
 - [ ] `git status` contains only intended changes
 - [ ] Pushed to `origin/main`
 - [ ] `git status` shows up to date with `origin/main`
