@@ -82,6 +82,6 @@ Notes:
 ## Phase 4 — Verification & push
 
 - [x] Final link/status sweep of changed files (relative links, YAML/CFF parsing, stale-domain scan, `git diff --check`, Julia resolution)
-- [ ] `git status` contains only intended changes
-- [ ] Pushed to `origin/main`
-- [ ] `git status` shows up to date with `origin/main`
+- [x] `git status` contains only intended changes (11 files: 4 new docs, docs/ tree, Project.toml, README.md)
+- [x] Pushed to `origin/main`
+- [x] `git status` shows up to date with `origin/main`
