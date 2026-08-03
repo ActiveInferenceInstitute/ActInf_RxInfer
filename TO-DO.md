@@ -25,6 +25,7 @@ Severity definitions:
 - [x] ✓ E4 — Add `CONTRIBUTING.md` (fork/PR flow, development environment, documentation conventions). (`CONTRIBUTING.md`) — completed in `70dbd3a`.
 - [x] ✓ E5 — Add `SECURITY.md` (private vulnerability reporting via GitHub advisory URL for this repo). (`SECURITY.md`) — completed in `70dbd3a`.
 - [x] ✓ E6 — Add `AGENTS.md` with repository facts and conventions for AI agent and tooling contributors. (`AGENTS.md`) — completed in `70dbd3a`.
+- [x] ✓ E7 — Add a verified runnable RxInfer example and the minimal package entry point: `examples/coin_flip.jl` (Beta-Bernoulli, RxInfer 5 `infer` API) and `src/ActInf_RxInfer.jl` (required so the named package precompiles). Verified on Julia 1.12.6 / RxInfer 5.5.0; measured output recorded in the docs and review log. — completed in `a4e0e39`.
 
 ## Major
 
@@ -32,5 +33,5 @@ Severity definitions:
 
 ## Open / deferred
 
-- Heavy Julia work (full `Pkg.instantiate()`, running RxInfer models, precompilation, test suites) is deferred — no `src/`/`test/` exists, and per pass guidance Julia-heavy runs are skipped. Compat bounds were verified via registry resolution only (see `REVIEW_LOG_2026-08-02.md`).
+- No test suite exists (`test/`); nothing to run. Adding one is out of scope for a docs pass and should accompany future source code.
 - No other open items.

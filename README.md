@@ -7,7 +7,7 @@ Active Inference and [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl).
 
 ## Status
 
-This repository currently contains the Julia project environment for work connecting Active Inference with RxInfer.jl. It does not yet contain a `src/` directory, executable examples, or tests. The dependency environment is declared in [`Project.toml`](Project.toml) and is ready to be extended with source code and examples.
+This repository provides a Julia project environment for work connecting Active Inference with RxInfer.jl, a minimal package entry point (`src/ActInf_RxInfer.jl`), and a verified runnable example ([`examples/coin_flip.jl`](examples/coin_flip.jl)). There is no test suite yet. The dependency environment is declared in [`Project.toml`](Project.toml).
 
 ## Getting started
 
@@ -27,6 +27,23 @@ julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status()'
 ```
 
 See [`docs/getting_started.md`](docs/getting_started.md) for the environment workflow and [`docs/index.md`](docs/index.md) for the documentation map.
+
+## Example
+
+A verified Beta-Bernoulli "coin flip" example ([`examples/coin_flip.jl`](examples/coin_flip.jl)) estimates the bias of a coin by message-passing inference:
+
+```sh
+julia --project=. examples/coin_flip.jl
+```
+
+Verified output (Julia 1.12.6, RxInfer 5.5.0, fixed random seed):
+
+```text
+True bias:        0.75
+Inferred mean:    0.7400793650793651
+Inferred std:     0.01951703487781785
+95% CI:           [0.7009483694712986, 0.7774057699488053]
+```
 
 ## Dependencies
 

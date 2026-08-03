@@ -18,4 +18,4 @@ This directory documents the current Julia environment and the intended entry po
 
 ## Current scope
 
-The repository currently provides a Julia `Project.toml` with the dependencies used for future Active Inference and RxInfer work. There is no source package, executable example, test suite, or generated documentation site in this revision. Documentation will grow alongside those artifacts rather than describing behavior that does not yet exist.
+The repository provides a Julia `Project.toml` with the dependencies used for Active Inference and RxInfer work, a minimal package entry point (`src/ActInf_RxInfer.jl`), and a verified example (`examples/coin_flip.jl`). There is no test suite or generated documentation site in this revision. Documentation grows alongside these artifacts rather than describing behavior that does not yet exist.

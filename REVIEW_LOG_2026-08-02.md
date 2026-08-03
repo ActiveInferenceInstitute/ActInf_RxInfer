@@ -77,8 +77,27 @@ Commits (chronological; see `git log` for full hashes):
 | `80cfcc2` | `docs: mark phase-4 verification complete` |
 
 Notes:
-- Heavy Julia work (full `Pkg.instantiate()`, running RxInfer models, precompilation) was intentionally NOT run — per pass guidance for Julia repos. Compat bounds are grounded in a registry resolution probe only.
-- No source code was touched; the only non-doc change is `Project.toml` metadata (name/uuid/version/compat), verified by re-resolution.
+- Heavy Julia work (full `Pkg.instantiate()`, running RxInfer models, precompilation) was initially deferred per pass guidance for Julia repos; it was subsequently executed on request — see the addendum below.
+- No source code was touched in the initial pass; the only non-doc change was `Project.toml` metadata (name/uuid/version/compat), verified by re-resolution.
+
+## Addendum — heavy validation executed (2026-08-02, on request)
+
+The deferred heavy Julia work was executed after the initial pass, and the repository was extended accordingly:
+
+1. `Pkg.instantiate()` completed: all dependencies installed, 313 packages precompiled.
+2. `src/ActInf_RxInfer.jl` added — a minimal entry point. This was required because the hardened `Project.toml` (name/uuid) makes Julia treat the project as a package, and packages need a source file (`Missing source file` precompile error otherwise). `using ActInf_RxInfer` verified working.
+3. `examples/coin_flip.jl` added — the canonical Beta-Bernoulli "coin flip" example (from the official RxInfer getting-started guide). API drift found and fixed: RxInfer v5 exports `infer(...)`; the older `inference(...)` is gone (confirmed against https://docs.rxinfer.com/stable/manuals/getting-started/).
+4. Verified example output (Julia 1.12.6, RxInfer 5.5.0, seed 123, n = 500 tosses, Beta(2, 2) prior):
+
+   ```text
+   True bias:        0.75
+   Inferred mean:    0.7400793650793651
+   Inferred std:     0.01951703487781785
+   95% CI:           [0.7009483694712986, 0.7774057699488053]
+   ```
+
+   Reproducible across repeated runs (fixed seed). The inferred mean implies 371 heads in the seeded sample; the 95% credible interval contains the true bias.
+5. Documentation updated to reflect the new state: README (Status, new Example section), `docs/getting_started.md`, `docs/index.md`, `AGENTS.md`, `TO-DO.md`.
 
 ## Phase 4 — Verification & push
 
