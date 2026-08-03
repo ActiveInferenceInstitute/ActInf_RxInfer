@@ -75,6 +75,9 @@ Commits (chronological; see `git log` for full hashes):
 | `70dbd3a` | `docs: add repository guides and contribution metadata` |
 | `cd6bbf4` | `docs: finalize review findings and verification record` |
 | `80cfcc2` | `docs: mark phase-4 verification complete` |
+| `e18d82a` | `docs: record final commit hashes in review log` |
+| `a4e0e39` | `feat: add package entry point and verified RxInfer coin-flip example` |
+| `0e21dca` | `docs: document verified example and updated repository scope` |
 
 Notes:
 - Heavy Julia work (full `Pkg.instantiate()`, running RxInfer models, precompilation) was initially deferred per pass guidance for Julia repos; it was subsequently executed on request — see the addendum below.
