@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (julia ${{ matrix.julia-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.10 is the current long-term support release; "1" tracks stable.
+        julia-version: ["1.10", "1"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Julia ${{ matrix.julia-version }}
+        uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - name: Cache Julia artifacts and packages
+        uses: julia-actions/cache@v3
+
+      - name: Run the package test suite
+        uses: julia-actions/julia-runtest@v1
+
+  gnn-conformance:
+    # Validates specs/coin_flip.gnn.md with the GNN revision pinned in
+    # specs/gnn-pin.json and checks that the dependency-free Julia reader in
+    # src/spec_reader.jl reads the same declarations. The pinned revision is
+    # installed into its own runtime, and the parser files are digest-verified
+    # against the pin record before the document is parsed.
+    name: gnn conformance (pinned v5.0.3)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.10"
+
+      - name: Provision the pinned GNN parser runtime
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/gnn-runtime"
+          uv pip install --python "$RUNNER_TEMP/gnn-runtime/bin/python" \
+            "generalized-notation-notation @ git+https://github.com/ActiveInferenceInstitute/Generalized_Notation_Notation@8f293d9ba810e6eda5c09842d9c7ed9ffa5f92c1"
+
+      - name: Validate the GNN specification against the pinned parser
+        run: >-
+          "$RUNNER_TEMP/gnn-runtime/bin/python" scripts/validate_gnn_spec.py
+          --gnn-runtime "$RUNNER_TEMP/gnn-runtime/bin/python"
+          --julia julia --json

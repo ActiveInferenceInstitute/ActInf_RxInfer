@@ -1,10 +1,11 @@
 # Documentation
 
-This directory documents the current Julia environment and the intended entry points for developing this repository.
+This directory documents the Julia environment, the generative-model specification, and the verification gates of this repository.
 
 ## Guides
 
-- [Getting started](getting_started.md) — install Julia, activate the project, instantiate dependencies, and inspect the environment.
+- [Getting started](getting_started.md) — install Julia, activate the project, instantiate dependencies, run the example and tests, and inspect the environment.
+- [Generalized Notation Notation](gnn.md) — the `specs/coin_flip.gnn.md` model declaration, the pinned parser record, and the validation commands.
 - [Resources](resources.md) — links to the upstream RxInfer ecosystem and Active Inference references used by this repository.
 
 ## Repository references
@@ -18,4 +19,4 @@ This directory documents the current Julia environment and the intended entry po
 
 ## Current scope
 
-The repository provides a Julia `Project.toml` with the dependencies used for Active Inference and RxInfer work, a minimal package entry point (`src/ActInf_RxInfer.jl`), and a verified example (`examples/coin_flip.jl`). There is no test suite or generated documentation site in this revision. Documentation grows alongside these artifacts rather than describing behavior that does not yet exist.
+The repository provides a Julia `Project.toml` with the dependencies used for Active Inference and RxInfer work, a package entry point (`src/ActInf_RxInfer.jl`) with the Beta-Bernoulli model, a dependency-free GNN reader (`src/spec_reader.jl`), a runnable example (`examples/coin_flip.jl`), a test suite (`test/runtests.jl`), one GitHub Actions workflow (`.github/workflows/ci.yml`), and the pinned GNN conformance check (`scripts/validate_gnn_spec.py`). Documentation describes these artifacts rather than behavior that does not yet exist.
