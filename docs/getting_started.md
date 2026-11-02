@@ -2,8 +2,9 @@
 
 ## Prerequisites
 
-- [Julia 1.10 or later](https://julialang.org/downloads/)
+- [Julia 1.10 or later](https://julialang.org/downloads/) (1.10 is the current long-term support release)
 - Git
+- Python 3.10 or later, only for the pinned GNN validation script
 
 The Julia version requirement is declared in [`Project.toml`](../Project.toml).
 
@@ -28,10 +29,12 @@ julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status()'
 
 ## What is available now
 
-The project declares RxInfer.jl, ReactiveMP.jl, and supporting packages, and provides:
-
-- `src/ActInf_RxInfer.jl` — a minimal package entry point (loadable with `using ActInf_RxInfer`; it has no exported API yet).
-- `examples/coin_flip.jl` — a verified Beta-Bernoulli "coin flip" example.
+- [`specs/coin_flip.gnn.md`](../specs/coin_flip.gnn.md) — the generative model declared in Generalized Notation Notation (GNN).
+- `src/ActInf_RxInfer.jl` — the package: `spec_*` readers, `coin_model`, `coin_data`, `coin_posterior`, and `analytic_posterior`.
+- `src/spec_reader.jl` — the dependency-free document reader.
+- `examples/coin_flip.jl` — the runnable example.
+- `test/runtests.jl` — the test suite.
+- `scripts/validate_gnn_spec.py` — the pinned-parser conformance check.
 
 Run the example:
 
@@ -39,19 +42,35 @@ Run the example:
 julia --project=. examples/coin_flip.jl
 ```
 
-Verified output (Julia 1.12.6, RxInfer 5.5.0, fixed random seed):
+Verified output (Julia 1.13.3, RxInfer 6.1.1, ReactiveMP 7.0.1, fixed random seed; the first line prints the absolute path of the document):
 
 ```text
+Specification:    <repository>/specs/coin_flip.gnn.md
 True bias:        0.75
+Observations:     500 (371 successes)
 Inferred mean:    0.7400793650793651
 Inferred std:     0.01951703487781785
 95% CI:           [0.7009483694712986, 0.7774057699488053]
+Conjugate mean:   0.7400793650793651
+Conjugate std:    0.01951703487781785
 ```
 
-There is no test suite yet; run repository tests once a suite exists.
+The inferred posterior equals the closed-form conjugate posterior `Beta(a + k, b + n - k)` for these observations; the test suite asserts that equality.
 
-For upstream usage documentation and runnable examples, see [RxInfer documentation](https://docs.rxinfer.com/) and [RxInfer examples](https://examples.rxinfer.com/).
+Run the tests:
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Validate the committed document with the pinned upstream parser:
+
+```sh
+python3 scripts/validate_gnn_spec.py --gnn-runtime /path/to/venv/bin/python --julia julia --json
+```
+
+See [`gnn.md`](gnn.md) for the pin, the validated modes, and the exit codes. For upstream usage documentation and runnable examples, see [RxInfer documentation](https://docs.rxinfer.com/) and [RxInfer examples](https://examples.rxinfer.com/).
 
 ## Reproducibility note
 
-This repository intentionally does not commit `Manifest.toml` at present; it is ignored by [`.gitignore`](../.gitignore). The project-level version bounds in [`Project.toml`](../Project.toml) describe the supported dependency families. Once reproducible application or research runs are added, the repository should decide whether a committed manifest is appropriate for those workflows.
+This repository intentionally does not commit `Manifest.toml`; it is ignored by [`.gitignore`](../.gitignore). The project-level version bounds in [`Project.toml`](../Project.toml) describe the supported dependency families, and the recorded example output names the versions it was produced with. Once reproducible application or research runs are added, the repository should decide whether a committed manifest is appropriate for those workflows.

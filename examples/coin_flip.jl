@@ -1,45 +1,38 @@
 # ActInf_RxInfer — coin-flip example
 #
 # Estimates the bias of a coin with a Beta-Bernoulli model using RxInfer.jl.
-# This is the canonical "learn the bias of a coin" example from the RxInfer
-# documentation (https://docs.rxinfer.com/stable/).
+# The model, and every number used below, is declared in the Generalized
+# Notation Notation document specs/coin_flip.gnn.md and read from there. The
+# posterior returned by message passing is compared against the closed-form
+# conjugate posterior Beta(a + k, b + n - k).
 #
 # Run from the repository root:
 #
 #     julia --project=. examples/coin_flip.jl
 #
-# Expected behaviour: the inferred posterior mean should be close to the true
-# bias (0.75) given 500 observations, and the 95% credible interval should
-# contain it.
+# Expected behaviour: the inferred posterior matches the conjugate posterior,
+# whose mean is close to the true bias (0.75) given 500 observations, and whose
+# 95% credible interval contains it.
 
+using ActInf_RxInfer
 using Distributions
 using Random
-using RxInfer
 
-# Define the model: a Beta prior over the coin bias, with Bernoulli
-# observations conditioned on the bias.
-@model function coin_model(y, a, b)
-    θ ~ Beta(a, b)
-    for i in eachindex(y)
-        y[i] ~ Bernoulli(θ)
-    end
-end
+parameters = spec_parameters(SPEC_PATH)
 
-# Simulate 500 coin tosses with a fixed seed for reproducibility.
-Random.seed!(123)
-θ_real = 0.75
-n = 500
-y = rand(Bernoulli(θ_real), n)
+# Simulate the declared number of tosses with the declared bias and seed.
+Random.seed!(parameters.seed)
+y = coin_data(parameters.theta_true, parameters.n_observations)
 
-# Run message-passing inference with a Beta(2, 2) prior.
-result = infer(
-    model = coin_model(a = 2.0, b = 2.0),
-    data = (y = y,)
-)
+# Run message-passing inference under the declared prior.
+posterior = coin_posterior(y; a = parameters.prior_a, b = parameters.prior_b)
+reference = analytic_posterior(y; a = parameters.prior_a, b = parameters.prior_b)
 
-posterior = result.posteriors[:θ]
-
-println("True bias:        ", θ_real)
+println("Specification:    ", SPEC_PATH)
+println("True bias:        ", parameters.theta_true)
+println("Observations:     ", parameters.n_observations, " (", sum(y), " successes)")
 println("Inferred mean:    ", mean(posterior))
 println("Inferred std:     ", std(posterior))
 println("95% CI:           ", quantile(posterior, [0.025, 0.975]))
+println("Conjugate mean:   ", mean(reference))
+println("Conjugate std:    ", std(reference))

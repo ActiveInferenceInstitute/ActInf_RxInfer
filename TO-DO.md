@@ -33,5 +33,8 @@ Severity definitions:
 
 ## Open / deferred
 
-- No test suite exists (`test/`); nothing to run. Adding one is out of scope for a docs pass and should accompany future source code.
-- No other open items.
+- [x] ✓ L2 — Adopt Generalized Notation Notation: declare the coin-flip model in `specs/coin_flip.gnn.md`, read it from `src/spec_reader.jl`, validate it with the pinned parser (`scripts/validate_gnn_spec.py`, `specs/gnn-pin.json`), and record the contract in `docs/gnn.md`. — completed in the GNN adoption change.
+- [x] ✓ L3 — Add a test suite (`test/runtests.jl`) and CI (`.github/workflows/ci.yml`) covering the declared model, the conjugate posterior, and the pinned GNN conformance job. — completed in the GNN adoption change.
+- [x] ✓ L4 — Bring the dependency bounds to the current families (RxInfer 6, ReactiveMP 7, StatsFuns 2, julia 1.10 long-term support floor) and re-verify the recorded example output. — completed in the GNN adoption change.
+- **Next:** if a rendered target is wanted later, the discrete-POMDP family that GNN's RxInfer.jl renderer targets would need its own model in this repository; the conjugate model declared today is validated but not rendered.
+- **Next:** the `inferants` branch holds a 2024 ants simulation (`ants.jl`) that was never merged and is preserved as is; adopting it would be a separate change.
