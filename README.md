@@ -16,6 +16,10 @@ The model is declared in [`specs/coin_flip.gnn.md`](specs/coin_flip.gnn.md): lat
 
 [`scripts/validate_gnn_spec.py`](scripts/validate_gnn_spec.py) checks the document with the parser pinned in [`specs/gnn-pin.json`](specs/gnn-pin.json) (GNN v5.0.3, commit `8f293d9ba`) and with the Julia reader, so all three readers must agree. CI runs it as a required job. See [`docs/gnn.md`](docs/gnn.md).
 
+GNN maintains a [downstream adoption
+guide](https://github.com/ActiveInferenceInstitute/Generalized_Notation_Notation/blob/main/docs/gnn/integration/downstream_adoption.md)
+for repositories that consume the notation.
+
 ## Getting started
 
 Install [Julia 1.10 or later](https://julialang.org/downloads/), clone the repository, and activate the project from its root:
