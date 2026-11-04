@@ -41,7 +41,7 @@ jobs:
     # src/spec_reader.jl reads the same declarations. The pinned revision is
     # installed into its own runtime, and the parser files are digest-verified
     # against the pin record before the document is parsed.
-    name: gnn conformance (pinned v5.0.3)
+    name: gnn conformance (pinned)
     runs-on: ubuntu-latest
 
     steps:
@@ -78,3 +78,12 @@ jobs:
           "$RUNNER_TEMP/gnn-runtime/bin/python" scripts/validate_gnn_spec.py
           --gnn-runtime "$RUNNER_TEMP/gnn-runtime/bin/python"
           --julia julia --json
+
+      - name: Report the resolved GNN version
+        run: |
+          PIN=specs/gnn-pin.json
+          VERSION=$("$RUNNER_TEMP/gnn-runtime/bin/python" -c 'import gnn; print(gnn.__version__)')
+          TAG=$(python3 -c "import json;print(json.load(open('$PIN'))['tag'])")
+          test -n "$VERSION"
+          test "$VERSION" = "${TAG#v}"
+          echo "gnn-version=${VERSION}" >> "$GITHUB_STEP_SUMMARY"
