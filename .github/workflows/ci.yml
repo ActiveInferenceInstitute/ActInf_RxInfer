@@ -11,8 +11,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    timeout-minutes: 120
     name: test (julia ${{ matrix.julia-version }})
     runs-on: ubuntu-latest
     strategy:
@@ -36,6 +40,7 @@ jobs:
         uses: julia-actions/julia-runtest@6e050c8013b833b1195105ff2fce9cd802f53271 # v1.12.0
 
   gnn-conformance:
+    timeout-minutes: 120
     # Validates specs/coin_flip.gnn.md with the GNN revision pinned in
     # specs/gnn-pin.json and checks that the dependency-free Julia reader in
     # src/spec_reader.jl reads the same declarations. The pinned revision is
