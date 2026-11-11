@@ -70,6 +70,9 @@ tasks:
   test:
     cmd: julia --project=. -e 'using Pkg; Pkg.test()'
     description: Run the Julia test suite.
+  example:
+    cmd: julia --project=. examples/coin_flip.jl
+    description: Run the Beta-Bernoulli message-passing coin-flip example.
 docs:
 - README.md
 - AGENTS.md

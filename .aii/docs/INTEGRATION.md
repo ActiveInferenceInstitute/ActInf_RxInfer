@@ -52,6 +52,7 @@
 | --- | --- | --- | --- |
 | `inventory` | `git ls-files` | `.` | List tracked files. |
 | `test` | `julia --project=. -e 'using Pkg; Pkg.test()'` | `.` | Run the Julia test suite. |
+| `example` | `julia --project=. examples/coin_flip.jl` | `.` | Run the Beta-Bernoulli message-passing coin-flip example. |
 
 ## Validation
 

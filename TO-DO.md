@@ -3,7 +3,7 @@
 Scoped improvements from the docs-deep review pass.
 
 - **Last reviewed:** 2026-08-02 (see `REVIEW_LOG_2026-08-02.md` for the full review and commit table)
-- **Review scope:** documentation and docs-adjacent metadata only; no source code exists yet in this repository
+- **Review scope:** documentation and docs-adjacent metadata. The repository now ships Julia source (`src/ActInf_RxInfer.jl`, `src/spec_reader.jl`), a runnable example, a test suite, and the pinned GNN validation gate, so later passes also cover the docs that describe them.
 
 Severity definitions:
 

@@ -6,6 +6,19 @@ Active Inference and [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl).
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Julia: 1.10+](https://img.shields.io/badge/Julia-1.10%2B-purple.svg)](https://julialang.org/)
 
+## Contents
+
+- [Status](#status)
+- [Generative-model specification](#generative-model-specification)
+- [Getting started](#getting-started)
+- [Example](#example)
+- [Tests](#tests)
+- [Dependencies](#dependencies)
+- [Resources](#resources)
+- [Contributing](#contributing)
+- [License](#license)
+- [InstituteOS sidecar](#instituteos-sidecar)
+
 ## Status
 
 This repository provides a Julia project environment for work connecting Active Inference with RxInfer.jl, the Beta-Bernoulli coin-flip model as a [Generalized Notation Notation](https://github.com/ActiveInferenceInstitute/Generalized_Notation_Notation) (GNN) document, a package entry point that reads that document, a runnable example, and a test suite. The dependency environment is declared in [`Project.toml`](Project.toml). CI runs the tests on the long-term support release and on stable, plus a required GNN conformance job.
