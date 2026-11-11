@@ -33,7 +33,6 @@ Institute repositories without touching this project's own content. The schema i
 
 - documentation
 - julia-package
-- notebooks
 - tested
 - ci
 - citation

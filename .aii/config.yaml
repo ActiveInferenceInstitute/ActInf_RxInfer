@@ -1,15 +1,16 @@
 # AII sidecar — InstituteOS metadata. Schema: aii_platform.aii_sidecar
 meta:
   sidecar_version: 1.2.1
-  updated: '2026-11-10'
+  updated: '2026-11-11'
 repo:
   name: ActInf_RxInfer
   slug: actinf-rxinfer
   full_name: ActiveInferenceInstitute/ActInf_RxInfer
   description: Julia package connecting Active Inference with RxInfer.jl, with a verified
-    Beta-Bernoulli message-passing example and reproducible notebook walkthrough.
+    Beta-Bernoulli message-passing example and a runnable script walkthrough.
 institute:
   category: research-software
+  maturity: wip
   steward: Active Inference Institute
 ecosystem:
   relations:
@@ -59,7 +60,6 @@ instituteos:
 capabilities:
 - documentation
 - julia-package
-- notebooks
 - tested
 - ci
 - citation
