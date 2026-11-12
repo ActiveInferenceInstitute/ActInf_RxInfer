@@ -4,11 +4,13 @@ This module imports the upstream ``gnn`` package. It is executed as a
 subprocess by ``scripts/validate_gnn_spec.py`` with the interpreter of the
 runtime installed from ``specs/gnn-pin.json``, so the parser that runs is the
 pinned revision and never a live checkout; that script also verifies the
-installed parser file digests the pin records.
+installed parser file digests the pin records. It is run with ``-P`` so the
+script directory cannot put a stand-in ``gnn`` ahead of the verified package:
+the digests and the import resolve the same package.
 
 Usage (normally invoked by the validator, not by hand):
 
-    <pinned-runtime>/bin/python scripts/gnn_parser_probe.py --spec <file>
+    <pinned-runtime>/bin/python -P scripts/gnn_parser_probe.py --spec <file>
 """
 
 from __future__ import annotations

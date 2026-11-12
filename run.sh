@@ -23,10 +23,11 @@
 # `gnn` runs in one environment: GNN_RUNTIME_PYTHON when set, and otherwise the
 # commit recorded in specs/gnn-pin.json installed into $ACTINF_GATE_DIR with uv
 # (from GNN_ROOT when that is set). CI uses the provisioned path. The arm then
-# runs the shared `python -m gnn.importers check` reader and the model
-# conformance check against that one installed revision, resolves the pin's
-# tag upstream (`--verify-tag-remote`, so the arm needs network access), and
-# runs the validator's offline unit tests.
+# digest-verifies the installed parser and checks the model conformance against
+# that one installed revision (resolving the pin's tag upstream with
+# `--verify-tag-remote`, so the arm needs network access) *before* it runs the
+# shared `python -m gnn.importers check` reader, which imports that parser and
+# validates the document with it, and last the validator's offline unit tests.
 #
 # There is no `types` arm: this is a Julia repository with no static type
 # checker, and test/runtests.jl is the checked contract.
@@ -97,17 +98,22 @@ provision_gnn_runtime() {
 
 # The pin, the `.github/GNN.md` pointer and the declared specification are the
 # shared reader's subject: `gnn.importers` in the pinned environment decides
-# them, so this repository keeps no second copy of that logic.
+# them, so this repository keeps no second copy of that logic. The reader
+# imports the installed parser and validates the document with it, so the
+# digest verification runs first: nothing in the pinned package is imported
+# before the digests recorded in the pin have been checked.
 arm_gnn() {
     local runtime=${GNN_RUNTIME_PYTHON:-}
     if [ -z "$runtime" ]; then
         provision_gnn_runtime || return $?
         runtime="$GATE_DIR/gnn-runtime/bin/python"
     fi
-    "$runtime" -m gnn.importers check --repo . --require-pointer \
-        --workflow .github/workflows/ci.yml --job gnn-conformance || return $?
     "$PYTHON" scripts/validate_gnn_spec.py --gnn-runtime "$runtime" --julia "$JULIA" \
         --verify-tag-remote --json || return $?
+    # `-P` keeps the working directory off sys.path, the same rule the
+    # validator applies to the interpreter it verifies digests in.
+    "$runtime" -P -m gnn.importers check --repo . --require-pointer \
+        --workflow .github/workflows/ci.yml --job gnn-conformance || return $?
     # Offline unit tests of the validator's own failure modes (tag/commit,
     # digest-before-parse, language version); standard library, no network.
     "$PYTHON" -m unittest discover -s test -p 'test_*.py'

@@ -12,6 +12,13 @@ with the interpreter's import machinery, never imported to parse), the
 installer's recorded VCS commit is compared with the pin, and the parser must be
 imported from the verified package, so the live working tree is never imported.
 
+Every subprocess that imports the pinned package runs with ``-P``: ``python -c``
+would otherwise prepend the working directory (where a stand-in ``gnn`` package
+could sit) while the probe, run as a file, prepends ``scripts/``. With the flag
+both resolve the package from ``PYTHONPATH`` and the interpreter's
+site-packages, so the digests verified here are the digests of the package the
+probe imports.
+
 The pin's ``tag`` and ``commit`` name one revision. ``--verify-tag-remote``
 resolves ``refs/tags/<tag>^{commit}`` upstream with ``git ls-remote`` (the peeled
 object of an annotated tag) and a tag that resolves elsewhere fails as
@@ -44,9 +51,10 @@ Usage:
     python3 scripts/validate_gnn_spec.py --gnn-runtime /path/to/venv/bin/python \\
         --julia julia --verify-tag-remote --json
 
-This is the second step of ``./run.sh gnn``, after
-``python -m gnn.importers check --repo . --require-pointer`` in the same
-interpreter.
+This is the first step of ``./run.sh gnn``: it runs before
+``python -P -m gnn.importers check --repo . --require-pointer`` in the same
+interpreter, because that reader imports the pinned parser and validates the
+document with it.
 """
 
 from __future__ import annotations
@@ -74,6 +82,12 @@ PACKAGE_PREFIX = "src/gnn/"
 #: language version is the document's and the parser's.
 TAG_COMMIT_MISMATCH = "tag-commit-mismatch"
 LANGUAGE_VERSION_MISMATCH = "language-version-mismatch"
+
+#: ``-P`` keeps the working directory (``-c``) and the script directory off
+#: ``sys.path``, so every process that imports the pinned package resolves it
+#: from ``PYTHONPATH`` and site-packages. The pinned distribution declares
+#: ``requires-python >=3.11``, the version that added the flag.
+SAFE_PATH = "-P"
 
 # Expectations of the pinned document. These are the declarations the Julia
 # implementation and the released example rely on; changing the model means
@@ -164,7 +178,7 @@ def read_pin(python: str, path: Path) -> dict[str, Any]:
 
     try:
         completed = subprocess.run(
-            [python, "-c", PIN_READER_PROGRAM, str(path)],
+            [python, SAFE_PATH, "-c", PIN_READER_PROGRAM, str(path)],
             capture_output=True,
             text=True,
             check=False,
@@ -259,7 +273,8 @@ def locate_package(python: str) -> Path:
     """Return the ``gnn`` package directory ``python`` would import, without importing it."""
 
     output = _run_text(
-        [python, "-c", LOCATE_EXPRESSION], what=f"cannot locate the gnn package in {python}"
+        [python, SAFE_PATH, "-c", LOCATE_EXPRESSION],
+        what=f"cannot locate the gnn package in {python}",
     )
     try:
         located = json.loads(output)
@@ -437,7 +452,7 @@ def run_probe(python: str, spec: Path, output: Path) -> dict[str, Any]:
 
     try:
         completed = subprocess.run(
-            [python, str(PROBE), "--spec", str(spec), "--output", str(output)],
+            [python, SAFE_PATH, str(PROBE), "--spec", str(spec), "--output", str(output)],
             capture_output=True,
             text=True,
             check=False,

@@ -23,9 +23,13 @@ Gate arms and the GNN validation. Every script here is called by
   commit and (with `--verify-tag-remote`) the pin's tag with the pinned commit
   (`tag-commit-mismatch`), checks the pin's language version against the
   document and the parser, and compares the result with what
-  `src/spec_reader.jl` reads and with the expectations in the script.
+  `src/spec_reader.jl` reads and with the expectations in the script. Every
+  built-in subprocess that imports the pinned package runs with `-P`, so the
+  working directory and `scripts/` are never on `sys.path` and the package it
+  verifies is the package the probe imports.
 - [`gnn_parser_probe.py`](gnn_parser_probe.py) — the module that imports the
-  upstream parser; the validator runs it as a subprocess in the pinned runtime.
+  upstream parser; the validator runs it as a subprocess in the pinned runtime
+  (with `-P`, for the same reason).
 
 Run through the entry point, which supplies the environment:
 
