@@ -65,6 +65,16 @@ The `static` job uses the runner's `python3`; the `gnn` job installs Python and
 pinned by commit. GitHub Actions is billing-locked for this organization, so a
 local `./run.sh all` is the gate that decides a change.
 
+## Failure propagation
+
+An arm fails if any command in it fails. The dispatcher runs an arm in a tested
+context (`run_arm "$arm" || status=$?`), and Bash suppresses `set -e` for a
+whole function in that context, so an arm must chain its subcommands explicitly
+(`a && b`, or `provision || return $?`) instead of relying on errexit. A command
+that succeeds after a failed one must never decide the arm's status: the `docs`
+arm returns nonzero as soon as `scripts/check_links.py` fails, and `all` stops at
+the first failing arm.
+
 ## Environment variables
 
 | Variable | Used by | Meaning |

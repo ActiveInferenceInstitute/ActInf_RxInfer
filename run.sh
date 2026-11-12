@@ -42,6 +42,11 @@ usage() {
         sed '1d;$d' | sed 's/^# \{0,1\}//'
 }
 
+# Every arm sequences its subcommands with `&&` or an explicit `return`, never
+# by relying on `set -e`: the dispatcher calls an arm inside a tested context
+# (`run_arm "$arm" || status=$?`), and Bash suppresses errexit for a whole
+# function in that context. Without the explicit chains a failed link check or
+# failed `lint` would be swallowed whenever the next command succeeded.
 arm_lint() {
     "$PYTHON" scripts/lint.py
 }
@@ -55,8 +60,8 @@ arm_full() {
 }
 
 arm_docs() {
-    "$PYTHON" scripts/check_links.py
-    "$PYTHON" scripts/gate_report.py --check
+    "$PYTHON" scripts/check_links.py &&
+        "$PYTHON" scripts/gate_report.py --check
 }
 
 provision_gnn_runtime() {
@@ -91,7 +96,7 @@ arm_gnn() {
         return
     fi
     if [ -z "$runtime" ]; then
-        provision_gnn_runtime
+        provision_gnn_runtime || return $?
         runtime="$GATE_DIR/gnn-runtime/bin/python"
     fi
     "$PYTHON" scripts/validate_gnn_spec.py --gnn-runtime "$runtime" --julia "$JULIA" --json
@@ -121,7 +126,7 @@ for arm in "$@"; do
         full) arm_full ;;
         docs) arm_docs ;;
         gnn) arm_gnn ;;
-        all) arm_lint; arm_full; arm_docs; arm_gnn ;;
+        all) arm_lint && arm_full && arm_docs && arm_gnn ;;
         *)
             echo "run.sh: unknown arm '$arm'; run ./run.sh --help" >&2
             status=2
