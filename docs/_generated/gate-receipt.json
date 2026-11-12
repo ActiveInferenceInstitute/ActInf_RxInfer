@@ -4,13 +4,13 @@
       "arm": "lint",
       "command": "./run.sh lint",
       "exit": 0,
-      "seconds": 0.27
+      "seconds": 0.17
     },
     {
       "arm": "fast",
       "command": "./run.sh fast",
       "exit": 0,
-      "seconds": 5.63,
+      "seconds": 3.41,
       "tests": {
         "deferred": 2,
         "passed": 17,
@@ -21,7 +21,7 @@
       "arm": "full",
       "command": "./run.sh full",
       "exit": 0,
-      "seconds": 11.06,
+      "seconds": 10.3,
       "tests": {
         "deferred": 0,
         "passed": 26,
@@ -36,7 +36,7 @@
         "commit": "75c834bd8519dc7b5adc4d24f16bf393cfd1ecdf",
         "version": "5.1.0"
       },
-      "seconds": 1.68
+      "seconds": 1.12
     },
     {
       "arm": "docs",
@@ -52,9 +52,9 @@
     "system": "Darwin",
     "uv": "uv 0.13.7 (Homebrew 2026-11-03 aarch64-apple-darwin)"
   },
-  "recorded": "2026-11-12T16:19:53Z",
+  "recorded": "2026-11-12T16:22:25Z",
   "repository": {
-    "commit": "19e9af274bb40d311e1a1550fd66f951b12bb671",
+    "commit": "7085ab9ab7e31bd55737b1508e98a8231914dd9f",
     "dirty": true
   },
   "schema": "actinf-rxinfer-gate/v1"
