@@ -10,7 +10,10 @@ its own copy of a command:
 - `gnn conformance (pinned)` (key `gnn-conformance`) — `./run.sh gnn`, which
   runs the shared `gnn.importers` reader over `specs/gnn-pin.json`,
   `.github/GNN.md` and `specs/coin_flip.gnn.md`, then validates the document
-  against the parser pinned in `specs/gnn-pin.json`.
+  against the parser pinned in `specs/gnn-pin.json` (currently v5.1.0, commit
+  `75c834bd`): parser digests are verified before parsing, the pin's tag is
+  resolved upstream and must name the pinned commit (`tag-commit-mismatch`),
+  and the pin's language version must match the document and the parser.
 
 Rules:
 

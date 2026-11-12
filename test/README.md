@@ -15,6 +15,11 @@ Two arms select the work through `ACTINF_RXINFER_TEST_ARM`:
 Neither arm is a separate file. `docs/gate.md` documents both, and
 `examples/coin_flip.jl` is exercised by the last testset of the full arm.
 
-The Python side of the gate has no test file here: the pin's shape is checked by
-the shared `gnn.importers` reader, which `./run.sh gnn` runs from the pinned
-revision.
+The pin's shape is not tested here: the shared `gnn.importers` reader checks it,
+and `./run.sh gnn` runs that reader from the pinned revision.
+[`test_validate_gnn_spec.py`](test_validate_gnn_spec.py) covers the validator's
+own failure modes offline with the standard library: the tag/commit binding
+(`tag-commit-mismatch`, with a stubbed `git ls-remote`), the installed-revision
+comparison, digest verification before the parser runs, a remote tag check that
+cannot answer ending the run as *not run*, and the language-version match.
+`./run.sh gnn` runs it after the validator.

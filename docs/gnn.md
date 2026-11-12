@@ -75,13 +75,23 @@ pinned parser. This repository keeps no second copy of that logic. Second:
 
 ```bash
 python3 scripts/validate_gnn_spec.py --gnn-runtime <runtime>/bin/python \
-    --julia julia --json
+    --julia julia --verify-tag-remote --json
 ```
 
 which reads the pin through `gnn.importers.read_pin` in the same runtime,
-verifies every recorded parser digest against the installed package, and runs
-the model-conformance checks below. `--julia`/`JULIA_BIN` adds the
-cross-language reader check.
+locates the installed package without importing it, verifies every recorded
+parser digest against it *before* the document is parsed, compares the
+installer's recorded VCS commit (`direct_url.json`) with the pin, and runs the
+model-conformance checks below. `--julia`/`JULIA_BIN` adds the cross-language
+reader check. `--verify-tag-remote` resolves the pin's `tag` upstream with
+`git ls-remote` (the peeled commit of an annotated tag) and fails as
+`tag-commit-mismatch` when it names a different commit than the pin; it needs
+network access, and a remote that cannot answer ends the run as *not run*
+(exit `2`). Without the flag nothing is resolved upstream and the receipt
+records `tag_binding.status` as `unresolvable-offline`; likewise an install
+without a recorded VCS commit is `unresolvable-offline` under `revision`, never
+a pass. After the validator, `./run.sh gnn` runs the offline unit tests in
+`test/test_validate_gnn_spec.py` (standard library, no network).
 
 The runtime is `GNN_RUNTIME_PYTHON` when it is set; otherwise the arm installs
 the pinned commit into `.gate/gnn-runtime` with `uv` (the path CI takes) and
@@ -89,8 +99,8 @@ caches it there by commit. `GNN_ROOT` names a `Generalized_Notation_Notation`
 checkout to install that commit from instead of the pinned repository, so a live
 working copy under development is never imported.
 
-Exit codes are `0` pass, `1` conformance failure, and `2` pinned runtime or
-requested Julia reader unavailable — an unavailable run is reported as not run,
+Exit codes are `0` pass, `1` conformance failure, and `2` pinned runtime,
+requested Julia reader, or requested remote tag resolution unavailable — an unavailable run is reported as not run,
 never as a pass.
 
 ## In CI
@@ -111,7 +121,11 @@ parses, and what it deliberately does not scan, is recorded in
    `gnn-importer-pin/v1` record that names the upstream repository, and every
    parser file digest it records matches the installed package.
 2. The document parses with the pinned `gnn` parser with no errors or warnings,
-   and the parser version equals the pinned tag.
+   and the parser version equals the pinned tag. The parser is imported from the
+   digest-verified package, the pin's `language_version` equals both the
+   document's `GNNVersionAndFlags` and the parser's reported version
+   (`language-version-mismatch`), and the pin's tag resolves to the pinned
+   commit (`tag-commit-mismatch`, with `--verify-tag-remote`).
 3. The declared model name, `StateSpaceBlock` variables and dimensions, the
    connection graph, the `InitialParameterization` scalars, the ontology
    annotations, and the section list match the expectations in
@@ -122,7 +136,8 @@ parses, and what it deliberately does not scan, is recorded in
 5. The pinned semantic validator accepts the document and the consistency
    checker reports it as consistent.
 
-The receipt is written to `docs/_build/gnn/validation-receipt.json`
+The receipt also records `language_version`, `parser_language_version`,
+`tag_binding` and `revision`. It is written to `docs/_build/gnn/validation-receipt.json`
 (`--receipt` overrides it).
 
 ## GNN–FEP migration: adopted

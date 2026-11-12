@@ -24,7 +24,9 @@
 # commit recorded in specs/gnn-pin.json installed into $ACTINF_GATE_DIR with uv
 # (from GNN_ROOT when that is set). CI uses the provisioned path. The arm then
 # runs the shared `python -m gnn.importers check` reader and the model
-# conformance check against that one installed revision.
+# conformance check against that one installed revision, resolves the pin's
+# tag upstream (`--verify-tag-remote`, so the arm needs network access), and
+# runs the validator's offline unit tests.
 #
 # There is no `types` arm: this is a Julia repository with no static type
 # checker, and test/runtests.jl is the checked contract.
@@ -104,7 +106,11 @@ arm_gnn() {
     fi
     "$runtime" -m gnn.importers check --repo . --require-pointer \
         --workflow .github/workflows/ci.yml --job gnn-conformance || return $?
-    "$PYTHON" scripts/validate_gnn_spec.py --gnn-runtime "$runtime" --julia "$JULIA" --json
+    "$PYTHON" scripts/validate_gnn_spec.py --gnn-runtime "$runtime" --julia "$JULIA" \
+        --verify-tag-remote --json || return $?
+    # Offline unit tests of the validator's own failure modes (tag/commit,
+    # digest-before-parse, language version); standard library, no network.
+    "$PYTHON" -m unittest discover -s test -p 'test_*.py'
 }
 
 if [ "$#" -eq 0 ]; then
