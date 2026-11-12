@@ -7,7 +7,7 @@ This repository is a small public Julia project environment for Active Inference
 - The project is defined by [`Project.toml`](Project.toml).
 - The generative model is declared in [`specs/coin_flip.gnn.md`](specs/coin_flip.gnn.md) (Generalized Notation Notation) and is the single source of truth for the prior, observation count, and seed.
 - The package is `src/ActInf_RxInfer.jl`; `src/spec_reader.jl` contains the dependency-free document reader and must not gain `using` statements.
-- The runnable example is `examples/coin_flip.jl`; the test suite is `test/runtests.jl`; CI is `.github/workflows/ci.yml`.
+- The runnable example is `examples/coin_flip.jl`; the test suite is `test/runtests.jl`; the gate entry point is `run.sh`; CI is `.github/workflows/ci.yml` and runs `run.sh` arms.
 - The upstream parser revision used by the validation gate is recorded in [`specs/gnn-pin.json`](specs/gnn-pin.json).
 - The public license is [MIT](LICENSE).
 - Documentation starts at [`docs/index.md`](docs/index.md).
@@ -21,16 +21,29 @@ This repository is a small public Julia project environment for Active Inference
 - Keep dependency changes in `Project.toml` and document their purpose.
 - Change the model in `specs/coin_flip.gnn.md` first, then the reader expectations in `scripts/validate_gnn_spec.py`, the recorded example output, and the docs in the same change. Never leave the document describing a model the code does not implement.
 - When source code or tests change, update the getting-started guide and this file.
+- Add gate behavior to `run.sh` and document it in `docs/gate.md`; never put a second copy of an arm's command in the workflow or the docs.
+- Do not hand-write measured numbers. `./run.sh measure` writes `docs/_generated/gate.md`, and the `docs` arm fails when the table disagrees with its receipt.
 - Do not commit secrets, credentials, private paths, generated local manifests, or machine-specific artifacts. `Manifest.toml` and `docs/_build/` stay ignored.
 
 ## Verification
 
-Run the documented gates and report them as they are, including "not run":
+`./run.sh` is the only gate entry point; every arm runs one command and CI runs
+the same script (`docs/gate.md` documents each arm, CI job, and environment).
 
 ```sh
-julia --project=. -e 'using Pkg; Pkg.test()'          # test suite, reads the committed GNN document
-julia --project=. examples/coin_flip.jl               # example smoke check
-python3 scripts/validate_gnn_spec.py --gnn-runtime <python> --julia julia --json
+./run.sh lint                                        # syntax checks, no package loading
+./run.sh fast                                        # suite without message passing
+./run.sh full                                        # full suite through Pkg.test()
+./run.sh docs                                        # links, docs hub, generated numbers
+./run.sh gnn                                         # pinned GNN conformance
+./run.sh measure                                     # refresh docs/_generated/gate.md
 ```
 
-The GNN validation needs a runtime with the pinned GNN distribution (`--gnn-runtime` or `GNN_RUNTIME_PYTHON`, or a checkout via `--gnn-root`/`GNN_ROOT`). Without one it exits `2` and prints that the check was not run; that is not a pass. The recorded example output in the README and in `docs/getting_started.md` must stay consistent with an actual run on the resolved environment.
+Report each arm as it is, including "not run". The `gnn` arm needs a runtime:
+`GNN_ROOT`/`GNN_PYTHON` for a checkout, `GNN_RUNTIME_PYTHON` for an installed
+one, or `uv` to provision the pin. Without one it exits `2` and prints that the
+check was not run; that is not a pass. The example is exercised by the `full`
+arm, which includes [`examples/coin_flip.jl`](examples/coin_flip.jl) in its last
+testset. Wall times are measured, not estimated: run `./run.sh measure` and read
+[`docs/_generated/gate.md`](docs/_generated/gate.md) instead of writing a number
+into prose.

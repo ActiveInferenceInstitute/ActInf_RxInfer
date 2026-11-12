@@ -35,6 +35,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status()'
 - `examples/coin_flip.jl` — the runnable example.
 - `test/runtests.jl` — the test suite.
 - `scripts/validate_gnn_spec.py` — the pinned-parser conformance check.
+- `run.sh` — the gate entry point; see [`gate.md`](gate.md).
 
 Run the example:
 
@@ -60,16 +61,27 @@ The inferred posterior equals the closed-form conjugate posterior `Beta(a + k, b
 Run the tests:
 
 ```sh
-julia --project=. -e 'using Pkg; Pkg.test()'
+./run.sh fast        # suite without the message-passing testsets
+./run.sh full        # every testset, through Pkg.test()
 ```
+
+`./run.sh` is the gate entry point; it runs the commands CI runs, and
+[`gate.md`](gate.md) lists every arm. `./run.sh` with no argument runs `lint`
+and then `fast`.
 
 Validate the committed document with the pinned upstream parser:
 
 ```sh
-python3 scripts/validate_gnn_spec.py --gnn-runtime /path/to/venv/bin/python --julia julia --json
+./run.sh gnn
 ```
 
-See [`gnn.md`](gnn.md) for the pin, the validated modes, and the exit codes. For upstream usage documentation and runnable examples, see [RxInfer documentation](https://docs.rxinfer.com/) and [RxInfer examples](https://examples.rxinfer.com/).
+That arm needs a pinned parser runtime or checkout; without one it exits `2` and
+reports the check as not run. `GNN_ROOT` and `GNN_PYTHON` select a checkout, and
+`GNN_RUNTIME_PYTHON` an installed runtime; otherwise the arm provisions
+`specs/gnn-pin.json` with `uv`. See [`gnn.md`](gnn.md) for the pin, the
+validated modes, and the exit codes.
+
+For upstream usage documentation and runnable examples, see [RxInfer documentation](https://docs.rxinfer.com/) and [RxInfer examples](https://examples.rxinfer.com/).
 
 ## Reproducibility note
 
