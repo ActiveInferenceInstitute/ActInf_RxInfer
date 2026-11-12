@@ -119,12 +119,17 @@ def _sha256(path: Path) -> str:
 
 
 def load_pin(path: Path) -> dict[str, Any]:
-    """Return the recorded GNN pin, rejecting a record without the required keys."""
+    """Return the recorded GNN pin, requiring its supported schema and keys."""
 
     pin = json.loads(path.read_text(encoding="utf-8"))
-    for key in ("repository", "tag", "commit", "language_version", "parser_files"):
+    for key in ("schema", "repository", "tag", "commit", "language_version", "parser_files"):
         if key not in pin:
             raise Unavailable(f"pin record {path} is missing the '{key}' field")
+    if pin["schema"] != "gnn-importer-pin/v1":
+        raise Unavailable(
+            f"pin record {path} has unsupported schema {pin['schema']!r}; "
+            "expected 'gnn-importer-pin/v1'"
+        )
     return pin
 
 

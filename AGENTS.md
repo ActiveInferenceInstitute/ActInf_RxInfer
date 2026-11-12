@@ -8,7 +8,7 @@ This repository is a small public Julia project environment for Active Inference
 - The generative model is declared in [`specs/coin_flip.gnn.md`](specs/coin_flip.gnn.md) (Generalized Notation Notation) and is the single source of truth for the prior, observation count, and seed.
 - The package is `src/ActInf_RxInfer.jl`; `src/spec_reader.jl` contains the dependency-free document reader and must not gain `using` statements.
 - The runnable example is `examples/coin_flip.jl`; the test suite is `test/runtests.jl`; the gate entry point is `run.sh`; CI is `.github/workflows/ci.yml` and runs `run.sh` arms.
-- The upstream parser revision used by the validation gate is recorded in [`specs/gnn-pin.json`](specs/gnn-pin.json).
+- The upstream parser revision used by the validation gate is recorded in [`specs/gnn-pin.json`](specs/gnn-pin.json); the local reader requires schema `gnn-importer-pin/v1`.
 - The public license is [MIT](LICENSE).
 - Documentation starts at [`docs/index.md`](docs/index.md).
 - Review scope and deferred work are tracked in [`TO-DO.md`](TO-DO.md).
