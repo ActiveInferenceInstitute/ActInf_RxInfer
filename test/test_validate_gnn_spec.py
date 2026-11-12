@@ -71,6 +71,36 @@ class TagBindingTests(unittest.TestCase):
         self.assertEqual(binding["resolved"], COMMIT)
         self.assertEqual(vgs.tag_failures(binding, _pin()), [])
 
+    def test_prepared_tag_store_requires_the_expected_origin_and_exact_tag(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = Path(directory)
+
+            def git(*args):
+                return subprocess.run(
+                    ["git", "-C", str(store), "-c", "commit.gpgSign=false",
+                     "-c", "tag.gpgSign=false", "-c", "core.hooksPath=/dev/null", *args], stdin=subprocess.DEVNULL,
+                    capture_output=True, text=True, check=True, timeout=10,
+                ).stdout.strip()
+
+            git("init", "-q")
+            git("config", "user.name", "Local gate test")
+            git("config", "user.email", "test@example.invalid")
+            git("commit", "--allow-empty", "-qm", "Pin fixture")
+            git("tag", "-a", "v9.9.9", "-m", "Pinned tag")
+            commit = git("rev-parse", "HEAD")
+            pin = _pin(commit=commit)
+            git("remote", "add", "origin", pin["repository"])
+            binding = vgs.tag_binding(pin, store=store)
+            self.assertEqual(binding["resolved"], commit)
+            self.assertEqual(binding["status"], "verified")
+            self.assertEqual(vgs.tag_failures(binding, pin), [])
+            self.assertTrue(vgs.tag_failures(binding, _pin()))
+            self.assertEqual(
+                vgs.tag_binding(_pin(tag="v9.9.8"), store=store)["status"], "unresolvable-offline"
+            )
+            git("remote", "set-url", "origin", "https://example.invalid/other")
+            self.assertEqual(vgs.tag_binding(pin, store=store)["status"], "unresolvable-offline")
+
     def test_a_tag_resolving_elsewhere_fails_by_name(self):
         with _ls_remote(f"{OTHER}\trefs/tags/v9.9.9\n"):
             binding = vgs.tag_binding(_pin(), remote=True)

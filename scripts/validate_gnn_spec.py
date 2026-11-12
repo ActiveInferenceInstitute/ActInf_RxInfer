@@ -350,11 +350,12 @@ def remote_url(repository: str) -> str:
     return f"https://github.com/{repository}"
 
 
-def tag_binding(pin: dict[str, Any], *, remote: bool = False) -> dict[str, Any]:
-    """Bind the pin's ``tag`` to its ``commit`` upstream, or say it was not resolved.
+def tag_binding(
+    pin: dict[str, Any], *, remote: bool = False, store: Path | None = None
+) -> dict[str, Any]:
+    """Resolve the exact tag from upstream or an explicitly prepared Git store.
 
-    Offline (``remote`` false) nothing is resolved and the status says so; the
-    run is never silently treated as verified.
+    The store records an earlier fetch. Only remote mode checks the live tag.
     """
 
     tag = pin["tag"]
@@ -365,6 +366,29 @@ def tag_binding(pin: dict[str, Any], *, remote: bool = False) -> dict[str, Any]:
         "resolved": None,
         "detail": "remote tag resolution was not requested (--verify-tag-remote)",
     }
+    if store is not None:
+        git = ["git", "--no-replace-objects", "-C", str(store)]
+        env = dict(os.environ, GIT_NO_LAZY_FETCH="1")
+        try:
+            origin = subprocess.run(
+                [*git, "config", "--local", "--get-all", "remote.origin.url"],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True, env=env,
+                timeout=10,
+            ).stdout.splitlines()
+            expected = remote_url(pin["repository"]).rstrip("/").removesuffix(".git")
+            if len(origin) != 1 or origin[0].rstrip("/").removesuffix(".git") != expected:
+                record["detail"] = "the local tag store origin differs from the pinned repository"
+                return record
+            resolved = subprocess.run(
+                [*git, "rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}"],
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True, env=env,
+                timeout=10,
+            ).stdout.strip()
+        except (OSError, subprocess.SubprocessError) as exc:
+            record["detail"] = f"the local tag store could not resolve {tag}: {exc}"
+            return record
+        record.update(status="verified", resolved=resolved, detail="prepared local Git tag store")
+        return record
     if not remote:
         return record
     try:
@@ -657,10 +681,16 @@ def main(argv: list[str] | None = None) -> int:
         default=os.environ.get("JULIA_BIN"),
         help="julia interpreter for the dependency-free spec reader (default: $JULIA_BIN)",
     )
-    parser.add_argument(
+    tag_mode = parser.add_mutually_exclusive_group()
+    tag_mode.add_argument(
         "--verify-tag-remote",
         action="store_true",
         help="resolve the pin's tag upstream with git ls-remote (needs network access)",
+    )
+    tag_mode.add_argument(
+        "--verify-tag-store",
+        type=Path,
+        help="resolve the pin's tag from an explicitly prepared Git store (offline)",
     )
     parser.add_argument("--spec", type=Path, default=GNN_SPEC_PATH)
     parser.add_argument("--pin", type=Path, default=GNN_PIN_PATH)
@@ -679,11 +709,10 @@ def main(argv: list[str] | None = None) -> int:
         output = Path(directory) / "probe.json"
         try:
             pin = read_pin(args.gnn_runtime, args.pin)
-            tag = tag_binding(pin, remote=args.verify_tag_remote)
-            if args.verify_tag_remote and tag["status"] != "verified":
-                # An explicit request to verify the tag upstream must not degrade
-                # into a silent pass when the remote cannot answer.
-                raise Unavailable(f"--verify-tag-remote: {tag['detail']}")
+            tag = tag_binding(pin, remote=args.verify_tag_remote, store=args.verify_tag_store)
+            if (args.verify_tag_remote or args.verify_tag_store) and tag["status"] != "verified":
+                flag = "--verify-tag-remote" if args.verify_tag_remote else "--verify-tag-store"
+                raise Unavailable(f"{flag}: {tag['detail']}")
             # Digests and the installer revision come before the parser runs, so
             # a tampered parser is never reached by parsing first.
             package_dir = locate_package(args.gnn_runtime)

@@ -55,6 +55,15 @@ point: nothing in the pinned package is imported by the arm before the digests
 recorded in the pin have been checked. A run that cannot resolve the runtime
 exits `2` and reports the check as not run. It is never reported as a pass.
 
+The default gate checks the live upstream tag. For an offline run, prepare
+a Git store while online by fetching the exact tag from the repository in
+[the pin](../specs/gnn-pin.json). Keep its `origin` set to that repository.
+Compare the fetched tag's peeled commit with the live upstream advertisement
+and the pin before the offline run. Pass its absolute path as
+`GNN_TAG_STORE=/path/to/prepared/store ./run.sh gnn` with the pinned runtime
+available. The receipt identifies the local store as its source. A missing
+tag, incorrect origin, or mismatched commit fails the gate.
+
 ## CI mapping
 
 | Job key | Display name | Runs |
