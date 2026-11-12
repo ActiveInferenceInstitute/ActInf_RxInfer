@@ -20,7 +20,8 @@ Gate arms and the GNN validation. Every script here is called by
   gate. It reads `specs/gnn-pin.json` with `gnn.importers.read_pin` in the
   pinned runtime, verifies the installed parser files against the pin's
   digests *before* parsing the document, compares the installer's recorded
-  commit and (with `--verify-tag-remote`) the pin's tag with the pinned commit
+  commit and (with `--verify-tag-remote`, or `--verify-tag-store` for an
+  offline run from a prepared Git store) the pin's tag with the pinned commit
   (`tag-commit-mismatch`), checks the pin's language version against the
   document and the parser, and compares the result with what
   `src/spec_reader.jl` reads and with the expectations in the script. Every

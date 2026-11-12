@@ -96,4 +96,5 @@ the first failing arm.
 | `PYTHON` | `lint`, `docs`, `gnn`, `measure` | Python 3 interpreter (default `python3`) |
 | `GNN_RUNTIME_PYTHON` | `gnn` | Already-installed pinned runtime |
 | `GNN_ROOT` | `gnn` | Checkout to install the pinned revision from, instead of the pinned repository |
+| `GNN_TAG_STORE` | `gnn` | Prepared Git store holding the pinned tag, used instead of a live upstream lookup (offline run) |
 | `ACTINF_GATE_DIR` | `gnn` | Where a provisioned runtime is cached (default `.gate`, ignored by Git) |

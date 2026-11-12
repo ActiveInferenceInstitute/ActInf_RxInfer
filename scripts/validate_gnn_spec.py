@@ -25,6 +25,10 @@ object of an annotated tag) and a tag that resolves elsewhere fails as
 ``tag-commit-mismatch``. Without the flag the binding is recorded in the receipt
 as ``unresolvable-offline``, never as a pass, and no network is used. With the
 flag, a remote that cannot answer ends the run as *not run* (exit ``2``).
+``--verify-tag-store`` resolves the same ref from an explicitly prepared Git
+store instead, which is how an offline run verifies the tag: the store must
+name the pin's repository as its single ``origin``, and the two flags are
+mutually exclusive.
 
 The pin's ``language_version`` must equal both the document's
 ``GNNVersionAndFlags`` section and the version the pinned parser reports
