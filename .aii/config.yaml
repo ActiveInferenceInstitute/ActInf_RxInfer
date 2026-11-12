@@ -1,7 +1,7 @@
 # AII sidecar — InstituteOS metadata. Schema: aii_platform.aii_sidecar
 meta:
   sidecar_version: 1.2.1
-  updated: '2026-11-11'
+  updated: '2026-11-12'
 repo:
   name: ActInf_RxInfer
   slug: actinf-rxinfer
@@ -68,7 +68,7 @@ tasks:
     cmd: git ls-files
     description: List tracked files.
   test:
-    cmd: julia --project=. -e 'using Pkg; Pkg.test()'
+    cmd: ./run.sh full
     description: Run the Julia test suite.
   example:
     cmd: julia --project=. examples/coin_flip.jl
@@ -76,7 +76,7 @@ tasks:
 docs:
 - README.md
 - AGENTS.md
-- docs/INTEGRATION.md
+- .aii/docs/INTEGRATION.md
 - docs/README.md
 - docs/AGENTS.md
 schema: aii-sidecar/v1
