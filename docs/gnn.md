@@ -73,10 +73,19 @@ as not run, never as a pass.
 
 ## What the validation checks
 
-1. The pin: the resolved commit equals `specs/gnn-pin.json` and every recorded
-   parser file digest matches.
+1. The pin: the resolved commit equals `specs/gnn-pin.json`, every recorded
+   parser file digest matches **before the document is parsed**, and the pin's
+   `tag` resolves to its `commit` in the GNN object store (a checkout's local
+   tags, or `--verify-tag-remote` for `git ls-remote`). A tag that resolves
+   elsewhere is a named `tag-commit-mismatch` failure; no object store is
+   reported as unresolvable, never assumed.
 2. The document parses with the pinned `gnn` parser with no errors or warnings,
-   and the parser version equals the pinned tag.
+   the distribution version equals the pinned tag, and the pin's
+   `language_version` equals both the document's `GNNVersionAndFlags`
+   declaration and the language version the parser reports. Disagreement is a
+   named `language-version-mismatch` failure. For an installed runtime the
+   installer's recorded VCS commit is compared with the pin when it exists;
+   an install without that metadata is reported as unresolvable.
 3. The declared model name, `StateSpaceBlock` variables and dimensions, the
    connection graph, the `InitialParameterization` scalars, the ontology
    annotations, and the section list match the expectations in

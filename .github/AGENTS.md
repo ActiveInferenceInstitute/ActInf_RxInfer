@@ -9,7 +9,8 @@ and on stable, and a separate `gnn conformance` job validates
   parser and the expectations in `scripts/validate_gnn_spec.py`.
 - The `gnn conformance` job provisions the GNN revision pinned in
   `specs/gnn-pin.json` (currently v5.0.3, commit `8f293d9ba`) into its own
-  Python runtime and digest-verifies the installed parser files before parsing.
+  Python runtime, resolves the pin's tag in the upstream object store against
+  that commit, and digest-verifies the installed parser files before parsing.
   It is a required check and must not be converted into a skip when the runtime
   cannot be provisioned.
 - The test matrix runs `Pkg.test()`, which resolves dependencies from
