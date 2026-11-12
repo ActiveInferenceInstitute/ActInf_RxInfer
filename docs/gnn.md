@@ -60,38 +60,44 @@ GNN_RUNTIME_PYTHON=/path/to/venv/bin/python ./run.sh gnn
 GNN_ROOT=/path/to/Generalized_Notation_Notation ./run.sh gnn
 ```
 
-`./run.sh gnn` runs two commands in one environment. First the estate's shared
-reader:
-
-```bash
-python -m gnn.importers check --repo . --require-pointer \
-    --workflow .github/workflows/ci.yml --job gnn-conformance
-```
-
-That reader is `src/gnn/importers.py` from the pinned revision; it reads
-`specs/gnn-pin.json`, requires `.github/GNN.md` to name the pin, the revision,
-the workflow and the job key, and validates `specs/coin_flip.gnn.md` with the
-pinned parser. This repository keeps no second copy of that logic. Second:
+`./run.sh gnn` runs three commands in one environment. First the validator:
 
 ```bash
 python3 scripts/validate_gnn_spec.py --gnn-runtime <runtime>/bin/python \
     --julia julia --verify-tag-remote --json
 ```
 
-which reads the pin through `gnn.importers.read_pin` in the same runtime,
+which reads the pin through `gnn.importers.read_pin` in that runtime,
 locates the installed package without importing it, verifies every recorded
 parser digest against it *before* the document is parsed, compares the
 installer's recorded VCS commit (`direct_url.json`) with the pin, and runs the
-model-conformance checks below. `--julia`/`JULIA_BIN` adds the cross-language
-reader check. `--verify-tag-remote` resolves the pin's `tag` upstream with
-`git ls-remote` (the peeled commit of an annotated tag) and fails as
-`tag-commit-mismatch` when it names a different commit than the pin; it needs
+model-conformance checks below. It runs first because the second command
+imports the parser and validates the document with it: nothing in the pinned
+package is imported for that before the digests are checked. Every subprocess
+the validator starts that imports the package runs with `-P`, so the working
+directory and `scripts/` stay off `sys.path` and the package whose digests are
+verified is the package the probe imports. `--julia`/`JULIA_BIN` adds the
+cross-language reader check. `--verify-tag-remote` resolves the pin's `tag`
+upstream with `git ls-remote` (the peeled commit of an annotated tag) and fails
+as `tag-commit-mismatch` when it names a different commit than the pin; it needs
 network access, and a remote that cannot answer ends the run as *not run*
 (exit `2`). Without the flag nothing is resolved upstream and the receipt
 records `tag_binding.status` as `unresolvable-offline`; likewise an install
 without a recorded VCS commit is `unresolvable-offline` under `revision`, never
-a pass. After the validator, `./run.sh gnn` runs the offline unit tests in
-`test/test_validate_gnn_spec.py` (standard library, no network).
+a pass. Second, the estate's shared reader:
+
+```bash
+python -P -m gnn.importers check --repo . --require-pointer \
+    --workflow .github/workflows/ci.yml --job gnn-conformance
+```
+
+That reader is `src/gnn/importers.py` from the pinned revision; it reads
+`specs/gnn-pin.json`, requires `.github/GNN.md` to name the pin, the revision,
+the workflow and the job key, and validates `specs/coin_flip.gnn.md` with the
+pinned parser. This repository keeps no second copy of that logic. Last,
+`./run.sh gnn` runs the offline unit tests in
+`test/test_validate_gnn_spec.py` and `test/test_gnn_verification_order.py`
+(standard library, no network).
 
 The runtime is `GNN_RUNTIME_PYTHON` when it is set; otherwise the arm installs
 the pinned commit into `.gate/gnn-runtime` with `uv` (the path CI takes) and
@@ -160,9 +166,10 @@ the cutover happened in the same change that advanced the pin:
   `src/spec_reader.jl`.
 - The pin-shape unit tests (`test/test_gnn_pin.py`) are gone. The shared reader
   reports `pin-*`, `spec-*` and `pointer-*` findings for those shapes.
-- `./run.sh gnn` calls `python -m gnn.importers check --repo . --require-pointer
-  --workflow .github/workflows/ci.yml --job gnn-conformance` in the runtime it
-  builds, before the model-conformance step.
+- `./run.sh gnn` calls `python -P -m gnn.importers check --repo .
+  --require-pointer --workflow .github/workflows/ci.yml --job gnn-conformance`
+  in the runtime it builds, after the model-conformance step: that reader
+  imports the pinned parser, so the digest verification runs first.
 - The `git archive` materialization path (`--gnn-root`, `GNN_PYTHON`) is gone
   with the second reader. `GNN_ROOT` now names the checkout the pinned runtime
   is installed from, so both steps of the arm run in one installed revision.

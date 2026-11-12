@@ -22,7 +22,7 @@ do not copy numbers from it into prose, and do not edit it by hand.
 | `fast` | `ACTINF_RXINFER_TEST_ARM=fast julia --project=. --startup-file=no test/runtests.jl` | The declared GNN model, the reader's error paths, and reproducible data generation. The two testsets that start RxInfer message passing are reported as deferred. | `julia` with the project instantiated |
 | `full` | `julia --project=. --startup-file=no -e 'using Pkg; Pkg.test()'` | Every testset, through the package's `test` target exactly as a user runs it. This is the command CI runs on both Julia versions. | `julia` |
 | `docs` | `python3 scripts/check_links.py` then `python3 scripts/gate_report.py --check` | Relative Markdown links resolve, `#fragment` targets exist, `docs/index.md` links every documentation page, `docs/documentation-index.md` lists every long-lived page, and the generated measurement table matches its receipt. External URLs are not fetched. | `python3` |
-| `gnn` | `python -m gnn.importers check --repo . --require-pointer --workflow .github/workflows/ci.yml --job gnn-conformance`, then `python3 scripts/validate_gnn_spec.py --gnn-runtime … --julia julia --verify-tag-remote --json`, then the offline validator unit tests (`test/test_validate_gnn_spec.py`) | The shared reader accepts the pin, the pointer and the document; the installed parser digests match the pin (verified before parsing) and the pin's tag resolves to its commit; the parsed model, the script's own reader, and `src/spec_reader.jl` agree. | A pinned GNN runtime, provisioned with `uv` when none is supplied; see [GNN](gnn.md) |
+| `gnn` | `python3 scripts/validate_gnn_spec.py --gnn-runtime … --julia julia --verify-tag-remote --json`, then `python -P -m gnn.importers check --repo . --require-pointer --workflow .github/workflows/ci.yml --job gnn-conformance`, then the offline validator unit tests (`test/test_validate_gnn_spec.py`, `test/test_gnn_verification_order.py`) | The installed parser digests match the pin (verified before anything imports the parser) and the pin's tag resolves to its commit; the shared reader then accepts the pin, the pointer and the document; the parsed model, the script's own reader, and `src/spec_reader.jl` agree. | A pinned GNN runtime, provisioned with `uv` when none is supplied; see [GNN](gnn.md) |
 | `measure` | `python3 scripts/gate_report.py` | Times every arm once and rewrites `docs/_generated/gate.md` from `docs/_generated/gate-receipt.json`. | Everything the arms need |
 
 There is no `types` arm: this is a Julia repository with no static type checker
@@ -46,11 +46,14 @@ default) and any other value is an error.
    which is what CI does. `GNN_ROOT` names a `Generalized_Notation_Notation`
    checkout to install that commit from instead of the pinned repository.
 
-That interpreter runs `python -m gnn.importers check --repo . --require-pointer
---workflow .github/workflows/ci.yml --job gnn-conformance` and then
-`scripts/validate_gnn_spec.py --gnn-runtime …`. A run that cannot resolve the
-runtime exits `2` and reports the check as not run. It is never reported as a
-pass.
+That interpreter first runs `scripts/validate_gnn_spec.py --gnn-runtime …`,
+which verifies the installed parser digests, and then `python -P -m
+gnn.importers check --repo . --require-pointer --workflow
+.github/workflows/ci.yml --job gnn-conformance`, which is the command that
+imports that parser and validates the document with it. The order is the
+point: nothing in the pinned package is imported by the arm before the digests
+recorded in the pin have been checked. A run that cannot resolve the runtime
+exits `2` and reports the check as not run. It is never reported as a pass.
 
 ## CI mapping
 

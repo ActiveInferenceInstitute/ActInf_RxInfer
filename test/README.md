@@ -22,4 +22,11 @@ own failure modes offline with the standard library: the tag/commit binding
 (`tag-commit-mismatch`, with a stubbed `git ls-remote`), the installed-revision
 comparison, digest verification before the parser runs, a remote tag check that
 cannot answer ending the run as *not run*, and the language-version match.
-`./run.sh gnn` runs it after the validator.
+[`test_gnn_verification_order.py`](test_gnn_verification_order.py) covers the
+two ordering properties end to end, against a stand-in `gnn` package on
+`PYTHONPATH` instead of a provisioned runtime: `./run.sh gnn` verifies the
+digests before the shared reader imports the parser and parses the document
+with it, and the package the digests are verified against is the package the
+probe imports even when the working directory holds a stand-in whose digests
+match the pin. Both use the standard library, spawn real subprocesses, and need
+no network. `./run.sh gnn` runs them after the reader.
