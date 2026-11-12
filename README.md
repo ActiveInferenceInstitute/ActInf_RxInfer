@@ -27,7 +27,7 @@ This repository provides a Julia project environment for work connecting Active 
 
 The model is declared in [`specs/coin_flip.gnn.md`](specs/coin_flip.gnn.md): latent bias `theta ~ Beta(a, b)`, observations `y_i ~ Bernoulli(theta)`, the sufficient statistic `k = sum(y)`, and the closed-form conjugate posterior `theta | y ~ Beta(a + k, b + n - k)`. The Julia code reads the declared prior, observation count, and seed instead of repeating them: `spec_parameters(SPEC_PATH)` loads them through the dependency-free reader [`src/spec_reader.jl`](src/spec_reader.jl).
 
-[`scripts/validate_gnn_spec.py`](scripts/validate_gnn_spec.py) checks the document with the parser pinned in [`specs/gnn-pin.json`](specs/gnn-pin.json) (GNN v5.0.3, commit `8f293d9ba`) and with the Julia reader, so all three readers must agree. CI runs it as a required job. See [`docs/gnn.md`](docs/gnn.md).
+[`specs/gnn-pin.json`](specs/gnn-pin.json) pins GNN `v5.1.0` at commit `75c834bd8`, and the shared `gnn.importers` reader from that revision validates the pin, [`.github/GNN.md`](.github/GNN.md) and the document. [`scripts/validate_gnn_spec.py`](scripts/validate_gnn_spec.py) then checks the document with the pinned parser and with the Julia reader, so all three readers must agree. CI runs the arm as a required job. See [`docs/gnn.md`](docs/gnn.md).
 
 GNN maintains a [downstream adoption
 guide](https://github.com/ActiveInferenceInstitute/Generalized_Notation_Notation/blob/main/docs/gnn/integration/downstream_adoption.md)
@@ -83,7 +83,7 @@ Conjugate std:    0.01951703487781785
 ./run.sh gnn         # the pinned GNN conformance check
 ```
 
-The `fast` arm runs the suite without the two testsets that start RxInfer message passing. The `full` arm runs `julia --project=. -e 'using Pkg; Pkg.test()'`, and the suite reads the committed GNN document and checks the declared model, the reader's error paths, reproducible data generation, and that message passing reproduces the closed-form conjugate posterior. The `gnn` arm resolves the parser pinned in [`specs/gnn-pin.json`](specs/gnn-pin.json); it accepts `GNN_ROOT`/`GNN_PYTHON` for a checkout, `GNN_RUNTIME_PYTHON` for an installed runtime, and otherwise provisions the pin with `uv`. Without any of those it reports that the check was not run and exits `2`.
+The `fast` arm runs the suite without the two testsets that start RxInfer message passing. The `full` arm runs `julia --project=. -e 'using Pkg; Pkg.test()'`, and the suite reads the committed GNN document and checks the declared model, the reader's error paths, reproducible data generation, and that message passing reproduces the closed-form conjugate posterior. The `gnn` arm runs in one environment: `GNN_RUNTIME_PYTHON` when it is set, and otherwise the revision in [`specs/gnn-pin.json`](specs/gnn-pin.json) installed into `.gate/gnn-runtime` with `uv`, from `GNN_ROOT` when that is set. That interpreter runs the shared `gnn.importers` check and then the model-conformance script; when it cannot be resolved the arm reports that the check was not run and exits `2`.
 
 ## Dependencies
 

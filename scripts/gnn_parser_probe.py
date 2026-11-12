@@ -1,13 +1,14 @@
 """Extract one GNN document with the pinned upstream parser and print JSON.
 
-This module is the only place that imports the upstream ``gnn`` package. It is
-executed as a subprocess by ``scripts/validate_gnn_spec.py`` with the pinned
-source tree first on ``PYTHONPATH``, so the parser that runs is always the
-revision recorded in ``specs/gnn-pin.json`` and never a live checkout.
+This module imports the upstream ``gnn`` package. It is executed as a
+subprocess by ``scripts/validate_gnn_spec.py`` with the interpreter of the
+runtime installed from ``specs/gnn-pin.json``, so the parser that runs is the
+pinned revision and never a live checkout; that script also verifies the
+installed parser file digests the pin records.
 
 Usage (normally invoked by the validator, not by hand):
 
-    PYTHONPATH=<pinned>/src python3 scripts/gnn_parser_probe.py --spec <file>
+    <pinned-runtime>/bin/python scripts/gnn_parser_probe.py --spec <file>
 """
 
 from __future__ import annotations

@@ -8,8 +8,9 @@ its own copy of a command:
 - `static (lint, docs)` — `./run.sh lint`, then `./run.sh docs`. It uses the
   runner's `python3` and installs nothing.
 - `gnn conformance (pinned)` (key `gnn-conformance`) — `./run.sh gnn`, which
-  validates `specs/coin_flip.gnn.md` against the parser pinned in
-  `specs/gnn-pin.json`.
+  runs the shared `gnn.importers` reader over `specs/gnn-pin.json`,
+  `.github/GNN.md` and `specs/coin_flip.gnn.md`, then validates the document
+  against the parser pinned in `specs/gnn-pin.json`.
 
 Rules:
 
@@ -18,8 +19,8 @@ Rules:
   parser and the expectations in `scripts/validate_gnn_spec.py`.
 - The conformance job installs Python and `uv` through
   `ActiveInferenceInstitute/.github/.github/actions/setup-python-uv@7159e67315330aac8e414aebae0ad1e999a41448`,
-  and `./run.sh gnn` provisions the pinned revision (currently v5.0.3, commit
-  `8f293d9ba`) into `.gate/gnn-runtime`. It is a required check and must not be
+  and `./run.sh gnn` provisions the pinned revision (currently v5.1.0, commit
+  `75c834bd8`) into `.gate/gnn-runtime`. It is a required check and must not be
   converted into a skip when the runtime cannot be provisioned; an unavailable
   runtime is exit `2`, never a pass.
 - The test matrix runs `Pkg.test()`, which resolves dependencies from

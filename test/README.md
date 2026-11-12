@@ -15,6 +15,6 @@ Two arms select the work through `ACTINF_RXINFER_TEST_ARM`:
 Neither arm is a separate file. `docs/gate.md` documents both, and
 `examples/coin_flip.jl` is exercised by the last testset of the full arm.
 
-[`test_gnn_pin.py`](test_gnn_pin.py) checks the local Python pin reader against
-the committed pin and rejects missing or malformed schemas. `./run.sh gnn`
-runs these standard-library unit tests before resolving the pinned parser.
+The Python side of the gate has no test file here: the pin's shape is checked by
+the shared `gnn.importers` reader, which `./run.sh gnn` runs from the pinned
+revision.

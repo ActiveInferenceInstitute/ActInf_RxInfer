@@ -22,7 +22,7 @@ do not copy numbers from it into prose, and do not edit it by hand.
 | `fast` | `ACTINF_RXINFER_TEST_ARM=fast julia --project=. --startup-file=no test/runtests.jl` | The declared GNN model, the reader's error paths, and reproducible data generation. The two testsets that start RxInfer message passing are reported as deferred. | `julia` with the project instantiated |
 | `full` | `julia --project=. --startup-file=no -e 'using Pkg; Pkg.test()'` | Every testset, through the package's `test` target exactly as a user runs it. This is the command CI runs on both Julia versions. | `julia` |
 | `docs` | `python3 scripts/check_links.py` then `python3 scripts/gate_report.py --check` | Relative Markdown links resolve, `#fragment` targets exist, `docs/index.md` links every documentation page, `docs/documentation-index.md` lists every long-lived page, and the generated measurement table matches its receipt. External URLs are not fetched. | `python3` |
-| `gnn` | Pin-reader unit tests, then `python3 scripts/validate_gnn_spec.py --gnn-runtime … --julia julia --json` | Rejection of missing or unsupported pin schemas, the parser digests, the parsed model, and agreement between the pinned parser, the script's own reader, and `src/spec_reader.jl`. | Python standard library for unit tests; a pinned GNN runtime or checkout for conformance; see [GNN](gnn.md) |
+| `gnn` | `python -m gnn.importers check --repo . --require-pointer --workflow .github/workflows/ci.yml --job gnn-conformance`, then `python3 scripts/validate_gnn_spec.py --gnn-runtime … --julia julia --json` | The shared reader accepts the pin, the pointer and the document; the installed parser digests match the pin; the parsed model, the script's own reader, and `src/spec_reader.jl` agree. | A pinned GNN runtime, provisioned with `uv` when none is supplied; see [GNN](gnn.md) |
 | `measure` | `python3 scripts/gate_report.py` | Times every arm once and rewrites `docs/_generated/gate.md` from `docs/_generated/gate-receipt.json`. | Everything the arms need |
 
 There is no `types` arm: this is a Julia repository with no static type checker
@@ -39,17 +39,18 @@ default) and any other value is an error.
 
 ## GNN arm environments
 
-`./run.sh gnn` resolves the pinned parser in this order:
+`./run.sh gnn` runs in one environment, and both of its commands use it:
 
-1. `GNN_RUNTIME_PYTHON` (or `--gnn-runtime`), an interpreter with the pinned
-   distribution installed;
-2. `GNN_ROOT` plus `GNN_PYTHON`, a `Generalized_Notation_Notation` checkout from
-   which the pinned commit is materialized with `git archive`;
-3. otherwise it provisions `specs/gnn-pin.json` into `.gate/gnn-runtime` with
-   `uv`, which is what CI does.
+1. `GNN_RUNTIME_PYTHON`, an interpreter with the pinned distribution installed;
+2. otherwise the pinned revision installed into `.gate/gnn-runtime` with `uv`,
+   which is what CI does. `GNN_ROOT` names a `Generalized_Notation_Notation`
+   checkout to install that commit from instead of the pinned repository.
 
-A run that cannot resolve a runtime exits `2` and reports the check as not run.
-It is never reported as a pass.
+That interpreter runs `python -m gnn.importers check --repo . --require-pointer
+--workflow .github/workflows/ci.yml --job gnn-conformance` and then
+`scripts/validate_gnn_spec.py --gnn-runtime …`. A run that cannot resolve the
+runtime exits `2` and reports the check as not run. It is never reported as a
+pass.
 
 ## CI mapping
 
@@ -82,5 +83,5 @@ the first failing arm.
 | `JULIA_BIN` | all Julia arms, `gnn` | Julia interpreter (default `julia`) |
 | `PYTHON` | `lint`, `docs`, `gnn`, `measure` | Python 3 interpreter (default `python3`) |
 | `GNN_RUNTIME_PYTHON` | `gnn` | Already-installed pinned runtime |
-| `GNN_ROOT`, `GNN_PYTHON` | `gnn` | Checkout of the pinned repository and its parser interpreter |
+| `GNN_ROOT` | `gnn` | Checkout to install the pinned revision from, instead of the pinned repository |
 | `ACTINF_GATE_DIR` | `gnn` | Where a provisioned runtime is cached (default `.gate`, ignored by Git) |
