@@ -86,6 +86,7 @@ provision_gnn_runtime() {
 }
 
 arm_gnn() {
+    "$PYTHON" -m unittest discover -s test -p 'test_gnn_pin.py' || return $?
     local runtime=${GNN_RUNTIME_PYTHON:-}
     if [ -z "$runtime" ] && [ -n "${GNN_ROOT:-}" ]; then
         local args=(--gnn-root "$GNN_ROOT" --julia "$JULIA" --json)

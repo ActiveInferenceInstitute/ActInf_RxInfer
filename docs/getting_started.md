@@ -78,8 +78,9 @@ Validate the committed document with the pinned upstream parser:
 That arm needs a pinned parser runtime or checkout; without one it exits `2` and
 reports the check as not run. `GNN_ROOT` and `GNN_PYTHON` select a checkout, and
 `GNN_RUNTIME_PYTHON` an installed runtime; otherwise the arm provisions
-`specs/gnn-pin.json` with `uv`. See [`gnn.md`](gnn.md) for the pin, the
-validated modes, and the exit codes.
+`specs/gnn-pin.json` with `uv`. The local reader requires the pin's
+`gnn-importer-pin/v1` schema. See [`gnn.md`](gnn.md) for the pin, the validated
+modes, and the exit codes.
 
 For upstream usage documentation and runnable examples, see [RxInfer documentation](https://docs.rxinfer.com/) and [RxInfer examples](https://examples.rxinfer.com/).
 
