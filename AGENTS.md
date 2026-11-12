@@ -8,7 +8,7 @@ This repository is a small public Julia project environment for Active Inference
 - The generative model is declared in [`specs/coin_flip.gnn.md`](specs/coin_flip.gnn.md) (Generalized Notation Notation) and is the single source of truth for the prior, observation count, and seed.
 - The package is `src/ActInf_RxInfer.jl`; `src/spec_reader.jl` contains the dependency-free document reader and must not gain `using` statements.
 - The runnable example is `examples/coin_flip.jl`; the test suite is `test/runtests.jl`; the gate entry point is `run.sh`; CI is `.github/workflows/ci.yml` and runs `run.sh` arms.
-- The upstream parser revision used by the validation gate is recorded in [`specs/gnn-pin.json`](specs/gnn-pin.json); the local reader requires schema `gnn-importer-pin/v1`.
+- The upstream parser revision used by the validation gate is recorded in [`specs/gnn-pin.json`](specs/gnn-pin.json). The pin, the pointer and the document are validated by the shared `gnn.importers` reader from that pinned revision, run by `run.sh gnn`; this repository keeps no copy of it.
 - The public license is [MIT](LICENSE).
 - Documentation starts at [`docs/index.md`](docs/index.md).
 - Review scope and deferred work are tracked in [`TO-DO.md`](TO-DO.md).
@@ -40,9 +40,9 @@ the same script (`docs/gate.md` documents each arm, CI job, and environment).
 ```
 
 Report each arm as it is, including "not run". The `gnn` arm needs a runtime:
-`GNN_ROOT`/`GNN_PYTHON` for a checkout, `GNN_RUNTIME_PYTHON` for an installed
-one, or `uv` to provision the pin. Without one it exits `2` and prints that the
-check was not run; that is not a pass. The example is exercised by the `full`
+`GNN_RUNTIME_PYTHON` for an installed one, or `uv` to provision the pin (from
+`GNN_ROOT` when that names a checkout). Without one it exits `2` and prints that
+the check was not run; that is not a pass. The example is exercised by the `full`
 arm, which includes [`examples/coin_flip.jl`](examples/coin_flip.jl) in its last
 testset. Wall times are measured, not estimated: run `./run.sh measure` and read
 [`docs/_generated/gate.md`](docs/_generated/gate.md) instead of writing a number

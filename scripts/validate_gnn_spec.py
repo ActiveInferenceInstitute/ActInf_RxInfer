@@ -1,41 +1,39 @@
 """Validate the committed GNN specification with the pinned upstream parser.
 
 The canonical GNN pin is recorded in ``specs/gnn-pin.json`` (repository, tag,
-commit, and SHA-256 digests of the parser files). This script supports two
-verified sources for that pin:
+commit, and SHA-256 digests of the parser files). The pin is read — and the
+pointer and the specification are checked — by the shared reader
+``gnn.importers`` run from the pinned environment; this script does not parse
+the pin's shape a second time. It uses one verified source: a pinned installed
+runtime (``--gnn-runtime`` or ``GNN_RUNTIME_PYTHON``), an interpreter whose
+``gnn`` package is installed at the pinned revision. The distribution version
+and the installed parser file digests are verified before the document is
+parsed, so the live working tree is never imported.
 
-* a GNN git checkout (``--gnn-root`` or ``GNN_ROOT``): the pinned commit is
-  materialized with ``git archive`` and every recorded digest is verified, so
-  the live working tree is never imported;
-* an installed pinned runtime (``--gnn-runtime`` or ``GNN_RUNTIME_PYTHON``):
-  an interpreter whose ``gnn`` package is installed at the pinned revision; the
-  distribution version and the installed parser file digests are verified.
-
-Either way the document is parsed by ``scripts/gnn_parser_probe.py`` in a
-subprocess and checked for conformance. ``specs/coin_flip.gnn.md`` is the
-single source of truth for the model, so the checks cover the declared model
-name, the declared variables and their dimensions, the connection graph, the
-declared scalars, the conjugate-posterior equations, and the ontology
-annotations, plus the pinned semantic validator and consistency checker.
+The document is parsed by ``scripts/gnn_parser_probe.py`` in a subprocess and
+checked for conformance. ``specs/coin_flip.gnn.md`` is the single source of
+truth for the model, so the checks cover the declared model name, the declared
+variables and their dimensions, the connection graph, the declared scalars, the
+conjugate-posterior equations, and the ontology annotations, plus the pinned
+semantic validator and consistency checker.
 
 The declared scalars are compared against three independent readers of the same
 document: the pinned parser, the regular-expression reader in this script, and
 the dependency-free Julia reader in ``src/spec_reader.jl``
 (``--julia`` or ``JULIA_BIN``, used by the Julia test suite as well).
 
-Exit codes: ``0`` pass, ``1`` conformance failure, ``2`` pinned runtime, pinned
-checkout, or requested Julia reader unavailable (the run is then explicitly
-*not run*, never a pass).
+Exit codes: ``0`` pass, ``1`` conformance failure, ``2`` pinned runtime or
+requested Julia reader unavailable (the run is then explicitly *not run*, never
+a pass).
 
 Usage:
 
-    # Local checkout (strongest: archive of the pinned commit)
-    GNN_ROOT=/path/to/Generalized_Notation_Notation \\
-    GNN_PYTHON=/path/to/parser-runtime/bin/python \\
-    python3 scripts/validate_gnn_spec.py --julia julia --json
+    python3 scripts/validate_gnn_spec.py --gnn-runtime /path/to/venv/bin/python \\
+        --julia julia --json
 
-    # Pinned installed runtime (used by CI)
-    python3 scripts/validate_gnn_spec.py --gnn-runtime /path/to/venv/bin/python
+This is the second step of ``./run.sh gnn``, after
+``python -m gnn.importers check --repo . --require-pointer`` in the same
+interpreter.
 """
 
 from __future__ import annotations
@@ -48,7 +46,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -118,18 +115,56 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def load_pin(path: Path) -> dict[str, Any]:
-    """Return the recorded GNN pin, requiring its supported schema and keys."""
+PIN_READER_PROGRAM = """\
+import json, sys
+from pathlib import Path
 
-    pin = json.loads(path.read_text(encoding="utf-8"))
-    for key in ("schema", "repository", "tag", "commit", "language_version", "parser_files"):
-        if key not in pin:
-            raise Unavailable(f"pin record {path} is missing the '{key}' field")
-    if pin["schema"] != "gnn-importer-pin/v1":
-        raise Unavailable(
-            f"pin record {path} has unsupported schema {pin['schema']!r}; "
-            "expected 'gnn-importer-pin/v1'"
+from gnn.importers import read_pin
+
+pin = read_pin(Path(sys.argv[1]))
+print(json.dumps({
+    "path": str(pin.path),
+    "schema": pin.schema,
+    "repository": pin.repository,
+    "tag": pin.tag,
+    "commit": pin.commit,
+    "recorded": pin.recorded,
+    "spec_files": list(pin.spec_files),
+    "parser_files": pin.raw.get("parser_files") or {},
+}))
+"""
+
+
+def read_pin(python: str, path: Path) -> dict[str, Any]:
+    """Read the pin with the shared reader installed in ``python``.
+
+    ``gnn.importers.read_pin`` is the estate's one normalizer for the pin
+    shapes; this script asks it for the facts it needs instead of deciding
+    which keys carry the revision, the tag or the digests.
+    """
+
+    try:
+        completed = subprocess.run(
+            [python, "-c", PIN_READER_PROGRAM, str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
         )
+    except OSError as exc:
+        raise Unavailable(f"gnn.importers could not run with {python}: {exc}") from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip().splitlines()
+        tail = " | ".join(detail[-3:]) if detail else "no output"
+        raise Unavailable(f"gnn.importers could not read {path}: {tail}")
+    try:
+        pin = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise Unavailable(f"gnn.importers printed no pin for {path}: {exc}") from exc
+    if not pin.get("tag"):
+        raise Unavailable(f"pin record {path} records no release tag")
+    digests = pin.get("parser_files")
+    if not isinstance(digests, dict) or not digests:
+        raise Unavailable(f"pin record {path} records no parser_files digests")
     return pin
 
 
@@ -151,72 +186,25 @@ def _verify_digests(package_dir: Path, pin: dict[str, Any], *, origin: str) -> d
     return observed
 
 
-def materialize_pin(gnn_root: Path, pin: dict[str, Any]) -> tuple[Path, str]:
-    """Return a directory holding the pinned source tree and how it was obtained."""
-
-    if not gnn_root.is_dir():
-        raise Unavailable(f"GNN checkout is not a directory: {gnn_root}")
-    if not (gnn_root / ".git").exists():
-        _verify_digests(gnn_root / "src" / "gnn", pin, origin=str(gnn_root))
-        return gnn_root, f"digest-verified source tree {gnn_root} (no git metadata)"
-
-    commit = pin["commit"]
-    resolved = subprocess.run(
-        ["git", "-C", str(gnn_root), "rev-parse", f"{commit}^{{commit}}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if resolved.returncode != 0:
-        raise Unavailable(f"pinned commit {commit} is not present in {gnn_root}")
-    if resolved.stdout.strip() != commit:
-        raise Unavailable(
-            f"resolved commit {resolved.stdout.strip()} differs from the pin {commit}"
-        )
-
-    target = Path(tempfile.mkdtemp(prefix="actinf-rxinfer-gnn-pin-"))
-    archive = target / "pinned.tar"
-    completed = subprocess.run(
-        ["git", "-C", str(gnn_root), "archive", "--format=tar", f"--output={archive}", commit],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if completed.returncode != 0:
-        raise Unavailable(f"git archive failed for {commit}: {completed.stderr.strip()}")
-    with tarfile.open(archive) as handle:
-        try:
-            handle.extractall(target, filter="data")
-        except TypeError:  # pragma: no cover - Python < 3.12 fallback
-            handle.extractall(target)
-    archive.unlink()
-    _verify_digests(target / "src" / "gnn", pin, origin=f"archive of {commit}")
-    return target, f"git archive of {commit}"
-
-
-def run_probe(python: str, spec: Path, output: Path, *, source: Path | None) -> dict[str, Any]:
+def run_probe(python: str, spec: Path, output: Path) -> dict[str, Any]:
     """Run the pinned parser probe in a subprocess and return its payload."""
 
-    environment = dict(os.environ)
-    if source is not None:
-        existing = environment.get("PYTHONPATH", "")
-        environment["PYTHONPATH"] = str(source / "src") + (
-            os.pathsep + existing if existing else ""
+    try:
+        completed = subprocess.run(
+            [python, str(PROBE), "--spec", str(spec), "--output", str(output)],
+            capture_output=True,
+            text=True,
+            check=False,
         )
-    completed = subprocess.run(
-        [python, str(PROBE), "--spec", str(spec), "--output", str(output)],
-        capture_output=True,
-        text=True,
-        check=False,
-        env=environment,
-    )
+    except OSError as exc:
+        raise Unavailable(f"pinned parser probe could not run with {python}: {exc}") from exc
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout).strip().splitlines()
         tail = " | ".join(detail[-3:]) if detail else "no output"
         raise Unavailable(
             f"pinned parser probe failed with {python}: {tail}. Provide an interpreter that "
             "has the GNN parser dependencies (a runtime installed from the pinned revision) "
-            "via --python/--gnn-runtime."
+            "via --gnn-runtime."
         )
     return json.loads(output.read_text(encoding="utf-8"))
 
@@ -279,7 +267,6 @@ def conformance_failures(
     payload: dict[str, Any],
     *,
     pin: dict[str, Any],
-    source: Path | None,
     spec_text: str,
     julia_summary: dict[str, str] | None,
 ) -> list[str]:
@@ -293,10 +280,6 @@ def conformance_failures(
         failures.append(
             f"parser version {payload['gnn_version']} differs from the pinned {expected_version}"
         )
-    if source is not None:
-        module = Path(str(payload["gnn_module"])).resolve()
-        if not module.is_relative_to((source / "src").resolve()):
-            failures.append(f"parser was imported from {module}, outside the pinned tree {source}")
     if not parser["success"]:
         failures.append("pinned parser reported failure")
     for message in parser["errors"]:
@@ -390,20 +373,9 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--gnn-root",
-        type=Path,
-        default=Path(os.environ["GNN_ROOT"]) if os.environ.get("GNN_ROOT") else None,
-        help="Generalized_Notation_Notation checkout (default: $GNN_ROOT)",
-    )
-    parser.add_argument(
         "--gnn-runtime",
         default=os.environ.get("GNN_RUNTIME_PYTHON"),
         help="interpreter with the pinned GNN distribution installed",
-    )
-    parser.add_argument(
-        "--python",
-        default=os.environ.get("GNN_PYTHON"),
-        help="parser interpreter used with --gnn-root (default: $GNN_PYTHON or this interpreter)",
     )
     parser.add_argument(
         "--julia",
@@ -416,11 +388,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print the receipt to stdout")
     args = parser.parse_args(argv)
 
-    pin = load_pin(args.pin)
-    if args.gnn_root is None and not args.gnn_runtime:
+    if not args.gnn_runtime:
         print(
-            "gnn validation not run: supply --gnn-root/GNN_ROOT or --gnn-runtime/"
-            "GNN_RUNTIME_PYTHON",
+            "gnn validation not run: supply --gnn-runtime/GNN_RUNTIME_PYTHON",
             file=sys.stderr,
         )
         return 2
@@ -428,17 +398,11 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="actinf-rxinfer-gnn-") as directory:
         output = Path(directory) / "probe.json"
         try:
-            if args.gnn_root is not None:
-                source, origin = materialize_pin(args.gnn_root, pin)
-                payload = run_probe(
-                    args.python or sys.executable, args.spec, output, source=source
-                )
-            else:
-                source = None
-                payload = run_probe(args.gnn_runtime, args.spec, output, source=None)
-                package_dir = Path(str(payload["gnn_module"])).resolve().parent
-                _verify_digests(package_dir, pin, origin=args.gnn_runtime)
-                origin = f"installed runtime {args.gnn_runtime} ({package_dir})"
+            pin = read_pin(args.gnn_runtime, args.pin)
+            payload = run_probe(args.gnn_runtime, args.spec, output)
+            package_dir = Path(str(payload["gnn_module"])).resolve().parent
+            _verify_digests(package_dir, pin, origin=args.gnn_runtime)
+            origin = f"installed runtime {args.gnn_runtime} ({package_dir})"
         except Unavailable as exc:
             print(f"gnn validation not run: {exc}", file=sys.stderr)
             return 2
@@ -454,7 +418,6 @@ def main(argv: list[str] | None = None) -> int:
         failures = conformance_failures(
             payload,
             pin=pin,
-            source=source,
             spec_text=args.spec.read_text(encoding="utf-8"),
             julia_summary=julia_summary,
         )

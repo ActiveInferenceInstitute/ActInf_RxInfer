@@ -16,13 +16,15 @@
 #   JULIA_BIN              Julia interpreter (default: julia)
 #   PYTHON                 Python 3 interpreter (default: python3)
 #   GNN_RUNTIME_PYTHON     interpreter with the pinned GNN distribution installed
-#   GNN_ROOT, GNN_PYTHON   Generalized_Notation_Notation checkout and its parser
-#                          interpreter; the pinned commit is materialized from it
+#   GNN_ROOT               Generalized_Notation_Notation checkout to install the
+#                          pinned commit from, instead of the pinned repository
 #   ACTINF_GATE_DIR        where `gnn` provisions a runtime (default: .gate)
 #
-# `gnn` prefers GNN_RUNTIME_PYTHON, then GNN_ROOT/GNN_PYTHON, and otherwise
-# installs the commit recorded in specs/gnn-pin.json into $ACTINF_GATE_DIR with
-# uv. CI uses the provisioned path; a checkout is faster locally.
+# `gnn` runs in one environment: GNN_RUNTIME_PYTHON when set, and otherwise the
+# commit recorded in specs/gnn-pin.json installed into $ACTINF_GATE_DIR with uv
+# (from GNN_ROOT when that is set). CI uses the provisioned path. The arm then
+# runs the shared `python -m gnn.importers check` reader and the model
+# conformance check against that one installed revision.
 #
 # There is no `types` arm: this is a Julia repository with no static type
 # checker, and test/runtests.jl is the checked contract.
@@ -65,41 +67,43 @@ arm_docs() {
 }
 
 provision_gnn_runtime() {
-    local pin=specs/gnn-pin.json venv="$GATE_DIR/gnn-runtime" marker repo commit
+    local pin=specs/gnn-pin.json venv="$GATE_DIR/gnn-runtime" marker repo commit source
     if ! command -v uv >/dev/null 2>&1; then
         echo "run.sh gnn: uv is required to provision the pinned GNN runtime;" \
-             "set GNN_ROOT or GNN_RUNTIME_PYTHON to use an existing install" >&2
+             "set GNN_RUNTIME_PYTHON to use an existing install" >&2
         return 2
     fi
     repo=$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["repository"])' "$pin")
     commit=$("$PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["commit"])' "$pin")
+    source=$repo
+    if [ -n "${GNN_ROOT:-}" ]; then
+        source="file://$(cd "$GNN_ROOT" && pwd)"
+    fi
     marker="$venv/.pin-commit"
     if [ -x "$venv/bin/python" ] && [ -f "$marker" ] && [ "$(cat "$marker")" = "$commit" ]; then
         return 0
     fi
     echo "run.sh gnn: provisioning gnn from $commit into $venv" >&2
     mkdir -p "$GATE_DIR"
-    uv venv --python 3.12 "$venv" >&2
+    if [ ! -x "$venv/bin/python" ]; then
+        uv venv --python 3.12 "$venv" >&2 || return $?
+    fi
     uv pip install --python "$venv/bin/python" \
-        "generalized-notation-notation @ git+${repo}@${commit}" >&2
+        "generalized-notation-notation @ git+${source}@${commit}" >&2
     printf '%s\n' "$commit" > "$marker"
 }
 
+# The pin, the `.github/GNN.md` pointer and the declared specification are the
+# shared reader's subject: `gnn.importers` in the pinned environment decides
+# them, so this repository keeps no second copy of that logic.
 arm_gnn() {
-    "$PYTHON" -m unittest discover -s test -p 'test_gnn_pin.py' || return $?
     local runtime=${GNN_RUNTIME_PYTHON:-}
-    if [ -z "$runtime" ] && [ -n "${GNN_ROOT:-}" ]; then
-        local args=(--gnn-root "$GNN_ROOT" --julia "$JULIA" --json)
-        if [ -n "${GNN_PYTHON:-}" ]; then
-            args+=(--python "$GNN_PYTHON")
-        fi
-        "$PYTHON" scripts/validate_gnn_spec.py "${args[@]}"
-        return
-    fi
     if [ -z "$runtime" ]; then
         provision_gnn_runtime || return $?
         runtime="$GATE_DIR/gnn-runtime/bin/python"
     fi
+    "$runtime" -m gnn.importers check --repo . --require-pointer \
+        --workflow .github/workflows/ci.yml --job gnn-conformance || return $?
     "$PYTHON" scripts/validate_gnn_spec.py --gnn-runtime "$runtime" --julia "$JULIA" --json
 }
 
