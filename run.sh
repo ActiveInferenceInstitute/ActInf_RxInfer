@@ -18,6 +18,7 @@
 #   GNN_RUNTIME_PYTHON     interpreter with the pinned GNN distribution installed
 #   GNN_ROOT               Generalized_Notation_Notation checkout to install the
 #                          pinned commit from, instead of the pinned repository
+#   GNN_TAG_STORE          Git store with the pinned tag fetched for offline use
 #   ACTINF_GATE_DIR        where `gnn` provisions a runtime (default: .gate)
 #
 # `gnn` runs in one environment: GNN_RUNTIME_PYTHON when set, and otherwise the
@@ -25,7 +26,7 @@
 # (from GNN_ROOT when that is set). CI uses the provisioned path. The arm then
 # digest-verifies the installed parser and checks the model conformance against
 # that one installed revision (resolving the pin's tag upstream with
-# `--verify-tag-remote`, so the arm needs network access) *before* it runs the
+# `--verify-tag-remote` by default, or from GNN_TAG_STORE) *before* it runs the
 # shared `python -m gnn.importers check` reader, which imports that parser and
 # validates the document with it, and last the validator's offline unit tests.
 #
@@ -108,8 +109,12 @@ arm_gnn() {
         provision_gnn_runtime || return $?
         runtime="$GATE_DIR/gnn-runtime/bin/python"
     fi
+    local tag_check=(--verify-tag-remote)
+    if [ -n "${GNN_TAG_STORE:-}" ]; then
+        tag_check=(--verify-tag-store "$GNN_TAG_STORE")
+    fi
     "$PYTHON" scripts/validate_gnn_spec.py --gnn-runtime "$runtime" --julia "$JULIA" \
-        --verify-tag-remote --json || return $?
+        "${tag_check[@]}" --json || return $?
     # `-P` keeps the working directory off sys.path, the same rule the
     # validator applies to the interpreter it verifies digests in.
     "$runtime" -P -m gnn.importers check --repo . --require-pointer \

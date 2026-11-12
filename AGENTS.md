@@ -42,8 +42,11 @@ the same script (`docs/gate.md` documents each arm, CI job, and environment).
 Report each arm as it is, including "not run". The `gnn` arm needs a runtime:
 `GNN_RUNTIME_PYTHON` for an installed one, or `uv` to provision the pin (from
 `GNN_ROOT` when that names a checkout). Without one it exits `2` and prints that
-the check was not run; that is not a pass. The example is exercised by the `full`
-arm, which includes [`examples/coin_flip.jl`](examples/coin_flip.jl) in its last
+the check was not run; that is not a pass.
+The GNN arm checks the live tag by default. For an offline launch, prepare
+the pinned tag in a Git store with the upstream origin and pass
+`GNN_TAG_STORE` as described in [the gate guide](docs/gate.md).
+The example is exercised by the `full` arm, which includes [`examples/coin_flip.jl`](examples/coin_flip.jl) in its last
 testset. Wall times are measured, not estimated: run `./run.sh measure` and read
 [`docs/_generated/gate.md`](docs/_generated/gate.md) instead of writing a number
 into prose.

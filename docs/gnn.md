@@ -81,10 +81,13 @@ cross-language reader check. `--verify-tag-remote` resolves the pin's `tag`
 upstream with `git ls-remote` (the peeled commit of an annotated tag) and fails
 as `tag-commit-mismatch` when it names a different commit than the pin; it needs
 network access, and a remote that cannot answer ends the run as *not run*
-(exit `2`). Without the flag nothing is resolved upstream and the receipt
-records `tag_binding.status` as `unresolvable-offline`; likewise an install
-without a recorded VCS commit is `unresolvable-offline` under `revision`, never
-a pass. Second, the estate's shared reader:
+(exit `2`). `--verify-tag-store` resolves the same ref from an explicitly
+prepared Git store instead, for an offline run; the store must name the pin's
+repository as its single `origin`, and `./run.sh gnn` selects it when
+`GNN_TAG_STORE` is set. Without either flag nothing is resolved upstream and the
+receipt records `tag_binding.status` as `unresolvable-offline`; likewise an
+install without a recorded VCS commit is `unresolvable-offline` under
+`revision`, never a pass. Second, the estate's shared reader:
 
 ```bash
 python -P -m gnn.importers check --repo . --require-pointer \
