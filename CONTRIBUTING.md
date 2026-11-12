@@ -16,7 +16,18 @@ The project uses Julia and declares its dependencies in [`Project.toml`](Project
 julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status()'
 ```
 
-There is currently no source package or test suite in this repository. When adding code, add corresponding tests and update the documentation in the same change.
+The package is `src/ActInf_RxInfer.jl`, the suite is `test/runtests.jl`, and the example is `examples/coin_flip.jl`. When adding code, add corresponding tests and update the documentation in the same change.
+
+## Before opening a pull request
+
+Run the gate from the repository root and report the arms as they are:
+
+```sh
+./run.sh            # lint, then the fast arm (the default)
+./run.sh all        # lint, full, docs, gnn
+```
+
+[`docs/gate.md`](docs/gate.md) lists every arm and what it proves. The `gnn` arm needs a pinned parser runtime or checkout, and exits `2` when it has neither; that is "not run", never a pass. `examples/coin_flip.jl` is exercised by the `full` arm.
 
 ## Documentation changes
 

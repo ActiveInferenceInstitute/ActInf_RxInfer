@@ -1,0 +1,61 @@
+{
+  "arms": [
+    {
+      "arm": "lint",
+      "command": "./run.sh lint",
+      "exit": 0,
+      "seconds": 0.35
+    },
+    {
+      "arm": "fast",
+      "command": "./run.sh fast",
+      "exit": 0,
+      "seconds": 13.98,
+      "tests": {
+        "deferred": 2,
+        "passed": 17,
+        "total": 19
+      }
+    },
+    {
+      "arm": "full",
+      "command": "./run.sh full",
+      "exit": 0,
+      "seconds": 37.23,
+      "tests": {
+        "deferred": 0,
+        "passed": 26,
+        "total": 26
+      }
+    },
+    {
+      "arm": "gnn",
+      "command": "./run.sh gnn",
+      "exit": 0,
+      "gnn": {
+        "commit": "8f293d9ba810e6eda5c09842d9c7ed9ffa5f92c1",
+        "version": "5.0.3"
+      },
+      "seconds": 2.39
+    },
+    {
+      "arm": "docs",
+      "command": "./run.sh docs",
+      "exit": 0,
+      "seconds": 0.23
+    }
+  ],
+  "host": {
+    "julia": "julia version 1.13.3",
+    "machine": "arm64",
+    "python": "3.15.2",
+    "system": "Darwin",
+    "uv": "uv 0.13.7 (Homebrew 2026-11-03 aarch64-apple-darwin)"
+  },
+  "recorded": "2026-11-12T13:00:12Z",
+  "repository": {
+    "commit": "5a66e1ac8732e599b8e23f8ed292c36a54c79c37",
+    "dirty": true
+  },
+  "schema": "actinf-rxinfer-gate/v1"
+}

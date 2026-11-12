@@ -13,9 +13,12 @@ declarations.
   bias `theta`, observations `y`, prior concentrations `a` and `b`, the
   sufficient statistic `k = sum(y)`, and the closed-form conjugate posterior
   `theta | y ~ Beta(a + k, b + n - k)`.
-* `specs/gnn-pin.json` — the pin record: upstream repository, tag `v5.0.3`,
-  commit `8f293d9ba810e6eda5c09842d9c7ed9ffa5f92c1`, and SHA-256 digests of the
-  parser files that validate the document.
+* `specs/gnn-pin.json` — the pin record (`gnn-importer-pin/v1`): upstream
+  repository, tag `v5.0.3`, commit `8f293d9ba810e6eda5c09842d9c7ed9ffa5f92c1`,
+  language version, and SHA-256 digests of the five parser files that validate
+  the document.
+* `.github/GNN.md` — the pointer that records what the conformance job parses
+  and what it deliberately does not scan.
 * `src/spec_reader.jl` — the dependency-free reader. `spec_parameters()` returns
   the declared prior, observation count, and seed; `examples/coin_flip.jl` and
   `test/runtests.jl` use it instead of repeating numbers in code.
@@ -47,29 +50,43 @@ parser's view of the same document.
 ## Commands
 
 ```bash
-# Julia test suite (reads the committed document)
-julia --project=. -e 'using Pkg; Pkg.test()'
+# The gate arm: resolves a runtime, validates, writes the receipt
+./run.sh gnn
 
-# Validate with the pinned upstream parser from a GNN checkout
+# Pinned checkout of the upstream parser (fastest locally)
 GNN_ROOT=/path/to/Generalized_Notation_Notation \
 GNN_PYTHON=/path/to/parser-runtime/bin/python \
-python3 scripts/validate_gnn_spec.py --julia julia --json
+./run.sh gnn
 
-# Installed pinned runtime (what CI uses)
-python3 scripts/validate_gnn_spec.py \
-  --gnn-runtime /path/to/venv/bin/python --julia julia --json
+# Installed pinned runtime
+GNN_RUNTIME_PYTHON=/path/to/venv/bin/python ./run.sh gnn
 ```
 
-`GNN_ROOT` is a `Generalized_Notation_Notation` checkout: the validator resolves
-the pinned commit with `git archive`, verifies every recorded parser digest, and
-runs the parser from that materialized tree, so a live working copy under
-development is never imported. `GNN_PYTHON` (or `--gnn-runtime`) selects the
-interpreter that has the parser dependencies; the GNN checkout's own `.venv`
-works. `--julia`/`JULIA_BIN` adds the cross-language reader check.
+`./run.sh gnn` runs `python3 scripts/validate_gnn_spec.py … --julia julia
+--json`. `GNN_ROOT` is a `Generalized_Notation_Notation` checkout: the validator
+resolves the pinned commit with `git archive`, verifies every recorded parser
+digest, and runs the parser from that materialized tree, so a live working copy
+under development is never imported. `GNN_PYTHON` (or `--gnn-runtime`) selects
+the interpreter that has the parser dependencies; the GNN checkout's own `.venv`
+works. `--julia`/`JULIA_BIN` adds the cross-language reader check. With neither
+a runtime nor a checkout, the arm provisions the pinned commit into
+`.gate/gnn-runtime` with `uv` (this is the path CI takes) and caches it there.
 
 Exit codes are `0` pass, `1` conformance failure, and `2` pinned runtime, pinned
 checkout, or requested Julia reader unavailable — an unavailable run is reported
 as not run, never as a pass.
+
+## In CI
+
+The check is the `gnn-conformance` job, displayed as `gnn conformance (pinned)`,
+in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). The job installs
+Python 3.12 and `uv` through
+`ActiveInferenceInstitute/.github/.github/actions/setup-python-uv@7159e67315330aac8e414aebae0ad1e999a41448`
+(pinned by commit), sets up Julia, and runs `./run.sh gnn`, which provisions the
+pin and performs the validation. The job is a required check and is never
+converted into a skip when the runtime cannot be provisioned. What the job
+parses, and what it deliberately does not scan, is recorded in
+[`.github/GNN.md`](../.github/GNN.md).
 
 ## What the validation checks
 

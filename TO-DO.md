@@ -30,6 +30,7 @@ Severity definitions:
 ## Major
 
 - [x] ✓ L1 — Establish the `docs/` tree: index, getting-started guide (grounded in the verified environment), and curated resources page; wire cross-links README ↔ docs ↔ TO-DO ↔ CITATION. (`docs/index.md`, `docs/getting_started.md`, `docs/resources.md`) — completed in `70dbd3a`.
+- [x] ✓ L5 — One gate entry point (`run.sh`) with separately runnable `lint`, `fast`, `full`, `docs`, `gnn`, and `measure` arms; CI runs the same arms instead of its own copies of the commands, the GNN runtime is provisioned from `specs/gnn-pin.json` by the `gnn` arm, and measured wall times live in the generated [`docs/_generated/gate.md`](docs/_generated/gate.md). — completed in the estate gate/docs change.
 
 ## Open / deferred
 

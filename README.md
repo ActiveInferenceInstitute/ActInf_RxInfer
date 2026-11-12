@@ -21,7 +21,7 @@ Active Inference and [RxInfer.jl](https://github.com/ReactiveBayes/RxInfer.jl).
 
 ## Status
 
-This repository provides a Julia project environment for work connecting Active Inference with RxInfer.jl, the Beta-Bernoulli coin-flip model as a [Generalized Notation Notation](https://github.com/ActiveInferenceInstitute/Generalized_Notation_Notation) (GNN) document, a package entry point that reads that document, a runnable example, and a test suite. The dependency environment is declared in [`Project.toml`](Project.toml). CI runs the tests on the long-term support release and on stable, plus a required GNN conformance job.
+This repository provides a Julia project environment for work connecting Active Inference with RxInfer.jl, the Beta-Bernoulli coin-flip model as a [Generalized Notation Notation](https://github.com/ActiveInferenceInstitute/Generalized_Notation_Notation) (GNN) document, a package entry point that reads that document, a runnable example, and a test suite. The dependency environment is declared in [`Project.toml`](Project.toml). [`run.sh`](run.sh) is the gate entry point, and CI runs its arms: `./run.sh full` on the long-term support release and on stable, `./run.sh lint` and `./run.sh docs` in one static job, and `./run.sh gnn` as a required conformance job.
 
 ## Generative-model specification
 
@@ -75,17 +75,15 @@ Conjugate std:    0.01951703487781785
 
 ## Tests
 
-```sh
-julia --project=. -e 'using Pkg; Pkg.test()'
-```
-
-The suite reads the committed GNN document and checks the declared model, the reader's error paths, reproducible data generation, and that message passing reproduces the closed-form conjugate posterior. Run the pinned GNN validation with:
+[`run.sh`](run.sh) is the single gate entry point; each arm runs one command and CI calls the same script. [`docs/gate.md`](docs/gate.md) describes every arm, and [`docs/_generated/gate.md`](docs/_generated/gate.md) records the measured wall time of each one.
 
 ```sh
-python3 scripts/validate_gnn_spec.py --gnn-runtime /path/to/venv/bin/python --julia julia --json
+./run.sh             # lint, then the fast arm
+./run.sh full        # every testset, through Pkg.test()
+./run.sh gnn         # the pinned GNN conformance check
 ```
 
-`--gnn-runtime` needs an interpreter with the pinned GNN distribution installed; `--gnn-root`/`GNN_ROOT` accepts a `Generalized_Notation_Notation` checkout instead and imports the pinned commit from a `git archive` of it. Without either, the check reports that it was not run and exits `2`.
+The `fast` arm runs the suite without the two testsets that start RxInfer message passing. The `full` arm runs `julia --project=. -e 'using Pkg; Pkg.test()'`, and the suite reads the committed GNN document and checks the declared model, the reader's error paths, reproducible data generation, and that message passing reproduces the closed-form conjugate posterior. The `gnn` arm resolves the parser pinned in [`specs/gnn-pin.json`](specs/gnn-pin.json); it accepts `GNN_ROOT`/`GNN_PYTHON` for a checkout, `GNN_RUNTIME_PYTHON` for an installed runtime, and otherwise provisions the pin with `uv`. Without any of those it reports that the check was not run and exits `2`.
 
 ## Dependencies
 
