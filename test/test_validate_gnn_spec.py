@@ -1,15 +1,13 @@
 """Offline tests for the pin-binding checks in ``scripts/validate_gnn_spec.py``.
 
-Standard library only, and no network: remote tag resolution is exercised
-against a stubbed ``git ls-remote``, and the runtime is a stub. Run with
-``python3 -m unittest discover -s test -p 'test_*.py'`` (``./run.sh gnn`` does).
+Standard library only, and no network: remote transport is stubbed, while local
+tag resolution uses a real disposable Git store. Source-admission/process
+regressions with actual producer resources live in test_gnn_verification_order.
 """
 
 from __future__ import annotations
 
-import contextlib
 import importlib.util
-import io
 import json
 import subprocess
 import sys
@@ -141,15 +139,6 @@ class RemoteUrlTests(unittest.TestCase):
         self.assertIn("https://github.com/Org/Repo", seen[0])
 
 
-class RevisionTests(unittest.TestCase):
-    def test_installed_commit_must_match_the_pin(self):
-        pin = _pin()
-        self.assertEqual(vgs.revision_failures({"status": "verified", "commit": COMMIT}, pin), [])
-        self.assertEqual(vgs.revision_failures({"status": "unresolvable-offline"}, pin), [])
-        mismatch = vgs.revision_failures({"status": "verified", "commit": OTHER}, pin)
-        self.assertTrue(mismatch[0].startswith(vgs.TAG_COMMIT_MISMATCH))
-        conflict = vgs.revision_failures({"status": "conflicting", "detail": "two"}, pin)
-        self.assertTrue(conflict[0].startswith(vgs.TAG_COMMIT_MISMATCH))
 
 
 class LanguageVersionTests(unittest.TestCase):
@@ -182,57 +171,6 @@ class LanguageVersionTests(unittest.TestCase):
             "1.1",
         )
         self.assertIsNone(vgs.document_language_version("## ModelName\n\nx\n"))
-
-
-class MainOrderingTests(unittest.TestCase):
-    """Drive ``main`` with a stub runtime; the parser must never run first."""
-
-    def _run(self, *extra, tag_listing=None, package=None):
-        probed = []
-
-        def fake_probe(*_args, **_kwargs):
-            probed.append("probe")
-            raise AssertionError("the parser must not run before the digests verify")
-
-        with tempfile.TemporaryDirectory() as directory:
-            directory = Path(directory)
-            patches = [
-                mock.patch.object(vgs, "read_pin", lambda *_a, **_k: _pin()),
-                mock.patch.object(vgs, "run_probe", fake_probe),
-                mock.patch.object(vgs, "locate_package", lambda *_a, **_k: package),
-            ]
-            if tag_listing is not None:
-                patches.append(_ls_remote(*tag_listing))
-            stderr = io.StringIO()
-            with contextlib.ExitStack() as stack:
-                for patch in patches:
-                    stack.enter_context(patch)
-                with contextlib.redirect_stderr(stderr):
-                    code = vgs.main(
-                        [
-                            "--gnn-runtime",
-                            sys.executable,
-                            "--receipt",
-                            str(directory / "receipt.json"),
-                            *extra,
-                        ]
-                    )
-        return code, probed, stderr.getvalue()
-
-    def test_digest_mismatch_is_not_run_before_parsing(self):
-        with tempfile.TemporaryDirectory() as directory:
-            package = Path(directory)
-            (package / "__init__.py").write_text("tampered", encoding="utf-8")
-            code, probed, err = self._run(package=package)
-        self.assertEqual(code, 2)
-        self.assertEqual(probed, [])
-        self.assertIn("digest mismatch", err)
-
-    def test_verify_tag_remote_that_cannot_answer_is_not_run(self):
-        code, probed, err = self._run("--verify-tag-remote", tag_listing=("", 128))
-        self.assertEqual(code, 2)
-        self.assertEqual(probed, [])
-        self.assertIn("--verify-tag-remote", err)
 
 
 if __name__ == "__main__":

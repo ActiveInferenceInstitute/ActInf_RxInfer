@@ -1,13 +1,15 @@
 # AGENTS.md — `scripts/`
 
-- Never import the upstream `gnn` package into this repository's own
-  interpreter. `gnn_parser_probe.py` runs in a subprocess of the pinned
-  runtime, and the validator reads the pin the same way, through
-  `gnn.importers.read_pin`; keep both in that runtime.
-- Keep the exit codes: `0` pass, `2` not run. A missing runtime must not report
-  success.
-- Verify the parser file digests in `specs/gnn-pin.json` before using a parsed
-  result.
+- Never import target GNN into the host validator. The reviewed bootstrap is
+  stdlib-only and executes under a non-GNN identity; actual GNN imports and
+  verdicts run in fresh selected-runtime children inside `qualified_source`
+  through exit revalidation.
+- Keep one producer-owned pin normalizer/checker and both independent frozen
+  resource hashes; never infer expected identity from the target.
+- Installed mode requires genuine distribution/PEP 610/full-content admission.
+  Explicit source mode requires its selected package and runtime; no fallback.
+- Keep exit codes `0` pass, `1` conformance failure, `2` not run. Do not return
+  executable GNN objects for use outside their qualified lifetime.
 - A model change updates the specification first, then this validator's
   expectations, in the same change.
 - Parent rules: [../AGENTS.md](../AGENTS.md).

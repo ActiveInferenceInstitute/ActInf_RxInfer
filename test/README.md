@@ -15,18 +15,20 @@ Two arms select the work through `ACTINF_RXINFER_TEST_ARM`:
 Neither arm is a separate file. `docs/gate.md` documents both, and
 `examples/coin_flip.jl` is exercised by the last testset of the full arm.
 
-The pin's shape is not tested here: the shared `gnn.importers` reader checks it,
-and `./run.sh gnn` runs that reader from the pinned revision.
-[`test_validate_gnn_spec.py`](test_validate_gnn_spec.py) covers the validator's
-own failure modes offline with the standard library: the tag/commit binding
-(`tag-commit-mismatch`, with a stubbed `git ls-remote`), the installed-revision
-comparison, digest verification before the parser runs, a remote tag check that
-cannot answer ending the run as *not run*, and the language-version match.
-[`test_gnn_verification_order.py`](test_gnn_verification_order.py) covers the
-two ordering properties end to end, against a stand-in `gnn` package on
-`PYTHONPATH` instead of a provisioned runtime: `./run.sh gnn` verifies the
-digests before the shared reader imports the parser and parses the document
-with it, and the package the digests are verified against is the package the
-probe imports even when the working directory holds a stand-in whose digests
-match the pin. Both use the standard library, spawn real subprocesses, and need
-no network. `./run.sh gnn` runs them after the reader.
+The producer owns pin normalization; consumer tests do not restore a second
+pin parser. [`test_validate_gnn_spec.py`](test_validate_gnn_spec.py) retains
+tag/URL/language contracts, including a real disposable offline tag store and
+stubbed remote transport.
+
+[`test_gnn_verification_order.py`](test_gnn_verification_order.py) requires
+both independently reviewed resources, an explicitly selected parser runtime
+with its dependencies, and actual producer files. It copies these into
+disposable storage and exercises unchecked execution, bytecode, manifest/member
+corruption, guarded lifetimes, origin and runtime-selection failures with real
+processes. Missing prerequisites fail setup, not skip-as-pass. Positive cases
+parse/check the committed specification with actual producer code, not stand-in
+parsers or fabricated installation metadata.
+
+[`test_run_gate.py`](test_run_gate.py) remains isolated dispatch/cache evidence,
+not parser, Julia or installed-runtime qualification. The GNN gate supplies its
+selected runtime to regression children.

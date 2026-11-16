@@ -1,70 +1,33 @@
-"""Validate the committed GNN specification with the pinned upstream parser.
+"""Validate the committed GNN model with an independently admitted parser.
 
-The canonical GNN pin is recorded in ``specs/gnn-pin.json`` (repository, tag,
-commit, and SHA-256 digests of the parser files). The pin is read — and the
-pointer and the specification are checked — by the shared reader
-``gnn.importers`` run from the pinned environment; this script does not parse
-the pin's shape a second time. It uses one verified source: a pinned installed
-runtime (``--gnn-runtime`` or ``GNN_RUNTIME_PYTHON``), an interpreter whose
-``gnn`` package is installed at the pinned revision. The installed parser file
-digests are verified *before* the document is parsed (the package is located
-with the interpreter's import machinery, never imported to parse), the
-installer's recorded VCS commit is compared with the pin, and the parser must be
-imported from the verified package, so the live working tree is never imported.
+The producer-owned standalone bootstrap reads the existing pin without importing
+gnn. Its checked bytes and independently frozen complete v5.1.0 source manifest
+are selected with --gnn-bootstrap/GNN_BOOTSTRAP and
+--gnn-source-manifest/GNN_SOURCE_MANIFEST. Every parser/verdict import and call
+runs in a fresh selected-runtime subprocess inside qualified_source, including
+exit revalidation. Installed mode requires matching PEP 610 Git origin and full
+content; explicit source mode requires --gnn-package-root/GNN_PACKAGE_ROOT and
+does not certify an installed distribution. Neither mode changes the pin.
 
-Every subprocess that imports the pinned package runs with ``-P``: ``python -c``
-would otherwise prepend the working directory (where a stand-in ``gnn`` package
-could sit) while the probe, run as a file, prepends ``scripts/``. With the flag
-both resolve the package from ``PYTHONPATH`` and the interpreter's
-site-packages, so the digests verified here are the digests of the package the
-probe imports.
+The tag check remains optional here and mandatory in run.sh gnn: remote mode
+resolves the live tag; --verify-tag-store uses an independently prepared store.
+No requested-but-unavailable tag or Julia reader can become a pass.
 
-The pin's ``tag`` and ``commit`` name one revision. ``--verify-tag-remote``
-resolves ``refs/tags/<tag>^{commit}`` upstream with ``git ls-remote`` (the peeled
-object of an annotated tag) and a tag that resolves elsewhere fails as
-``tag-commit-mismatch``. Without the flag the binding is recorded in the receipt
-as ``unresolvable-offline``, never as a pass, and no network is used. With the
-flag, a remote that cannot answer ends the run as *not run* (exit ``2``).
-``--verify-tag-store`` resolves the same ref from an explicitly prepared Git
-store instead, which is how an offline run verifies the tag: the store must
-name the pin's repository as its single ``origin``, and the two flags are
-mutually exclusive.
+The document remains the model's single source of truth. Conformance compares
+its name, variables, dimensions, graph, scalars, posterior equations and ontology
+with the pinned parser, semantic validator and consistency checker. Scalars
+also agree with the regex reader and, when requested, the dependency-free Julia
+reader. All comparisons outside the child consume JSON data, not GNN objects.
 
-The pin's ``language_version`` must equal both the document's
-``GNNVersionAndFlags`` section and the version the pinned parser reports
-(``language-version-mismatch``).
-
-The document is parsed by ``scripts/gnn_parser_probe.py`` in a subprocess and
-checked for conformance. ``specs/coin_flip.gnn.md`` is the single source of
-truth for the model, so the checks cover the declared model name, the declared
-variables and their dimensions, the connection graph, the declared scalars, the
-conjugate-posterior equations, and the ontology annotations, plus the pinned
-semantic validator and consistency checker.
-
-The declared scalars are compared against three independent readers of the same
-document: the pinned parser, the regular-expression reader in this script, and
-the dependency-free Julia reader in ``src/spec_reader.jl``
-(``--julia`` or ``JULIA_BIN``, used by the Julia test suite as well).
-
-Exit codes: ``0`` pass, ``1`` conformance failure, ``2`` pinned runtime,
-requested Julia reader, or requested remote tag resolution unavailable (the run is then explicitly *not run*, never
-a pass).
-
-Usage:
-
-    python3 scripts/validate_gnn_spec.py --gnn-runtime /path/to/venv/bin/python \\
-        --julia julia --verify-tag-remote --json
-
-This is the first step of ``./run.sh gnn``: it runs before
-``python -P -m gnn.importers check --repo . --require-pointer`` in the same
-interpreter, because that reader imports the pinned parser and validates the
-document with it.
+Exit codes: 0 pass, 1 conformance failure, 2 not run (runtime, admission, requested
+tag resolution or requested Julia reader unavailable). This is the first step
+of run.sh gnn; the shared producer checker is independently guarded afterward.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -80,7 +43,6 @@ PROBE = ROOT / "scripts" / "gnn_parser_probe.py"
 GNN_SPEC_PATH = ROOT / "specs" / "coin_flip.gnn.md"
 GNN_PIN_PATH = ROOT / "specs" / "gnn-pin.json"
 DEFAULT_RECEIPT = ROOT / "docs" / "_build" / "gnn" / "validation-receipt.json"
-PACKAGE_PREFIX = "src/gnn/"
 
 #: Named failures: the pin's tag and commit are one revision, and the pin's
 #: language version is the document's and the parser's.
@@ -139,131 +101,39 @@ READER_EXPRESSION = (
 )
 
 
-class Unavailable(RuntimeError):
-    """Raised when the pinned parser runtime or checkout is not available."""
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-PIN_READER_PROGRAM = """\
-import json, sys
-from pathlib import Path
-
-from gnn.importers import read_pin
-
-pin = read_pin(Path(sys.argv[1]))
-print(json.dumps({
-    "path": str(pin.path),
-    "schema": pin.schema,
-    "repository": pin.repository,
-    "tag": pin.tag,
-    "commit": pin.commit,
-    "recorded": pin.recorded,
-    "language_version": pin.raw.get("language_version"),
-    "spec_files": list(pin.spec_files),
-    "parser_files": pin.raw.get("parser_files") or {},
-}))
-"""
-
-
-def read_pin(python: str, path: Path) -> dict[str, Any]:
-    """Read the pin with the shared reader installed in ``python``.
-
-    ``gnn.importers.read_pin`` is the estate's one normalizer for the pin
-    shapes; this script asks it for the facts it needs instead of deciding
-    which keys carry the revision, the tag or the digests.
-    """
-
-    try:
-        completed = subprocess.run(
-            [python, SAFE_PATH, "-c", PIN_READER_PROGRAM, str(path)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as exc:
-        raise Unavailable(f"gnn.importers could not run with {python}: {exc}") from exc
-    if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout).strip().splitlines()
-        tail = " | ".join(detail[-3:]) if detail else "no output"
-        raise Unavailable(f"gnn.importers could not read {path}: {tail}")
-    try:
-        pin = json.loads(completed.stdout)
-    except json.JSONDecodeError as exc:
-        raise Unavailable(f"gnn.importers printed no pin for {path}: {exc}") from exc
-    if not pin.get("tag"):
-        raise Unavailable(f"pin record {path} records no release tag")
-    if not pin.get("commit"):
-        raise Unavailable(f"pin record {path} records no commit")
-    if not pin.get("repository"):
-        raise Unavailable(f"pin record {path} records no repository")
-    if not pin.get("language_version"):
-        raise Unavailable(f"pin record {path} records no language_version")
-    digests = pin.get("parser_files")
-    if not isinstance(digests, dict) or not digests:
-        raise Unavailable(f"pin record {path} records no parser_files digests")
-    return pin
-
-
-def _verify_digests(package_dir: Path, pin: dict[str, Any], *, origin: str) -> dict[str, str]:
-    """Verify every recorded parser digest under an installed ``gnn`` package."""
-
-    observed: dict[str, str] = {}
-    for relative, expected in sorted(pin["parser_files"].items()):
-        suffix = relative[len(PACKAGE_PREFIX) :] if relative.startswith(PACKAGE_PREFIX) else relative
-        path = package_dir / suffix
-        if not path.is_file():
-            raise Unavailable(f"pinned parser file is missing from {origin}: {suffix}")
-        observed[relative] = _sha256(path)
-        if observed[relative] != expected:
-            raise Unavailable(
-                f"pinned parser file digest mismatch for {suffix} in {origin}: "
-                f"expected {expected}, observed {observed[relative]}"
-            )
-    return observed
-
-
-# Locating the installed package and reading its installer metadata never parses
-# a document, so the digest and revision checks run before the probe.
-LOCATE_EXPRESSION = (
-    "import importlib.util, json; "
-    "spec = importlib.util.find_spec('gnn'); "
-    "print(json.dumps({'module': spec.origin if spec else None, "
-    "'locations': [str(path) for path in (spec.submodule_search_locations or [])] "
-    "if spec else []}))"
+_source_spec = importlib.util.spec_from_file_location(
+    "actinf_rxinfer_gnn_source", ROOT / "scripts" / "gnn_source.py"
 )
-REVISION_PROGRAM = """
-import importlib.metadata as md
-import json
+source = importlib.util.module_from_spec(_source_spec)
+sys.modules[_source_spec.name] = source
+_source_spec.loader.exec_module(source)
+Unavailable = source.Unavailable
 
-records = []
-for name in md.packages_distributions().get("gnn", []):
+
+
+
+def read_pin(python: str, path: Path, *, source_args: list[str]) -> dict[str, Any]:
+    """Ask the checked producer bootstrap for pin data in the selected runtime."""
+    output = _run_text(
+        [
+            python, SAFE_PATH, str(ROOT / "scripts" / "gnn_source.py"), "pin",
+            "--pin", str(path.absolute()), *source_args,
+        ],
+        what=f"reviewed GNN pin reader could not run with {python}",
+    )
     try:
-        distribution = md.distribution(name)
-    except md.PackageNotFoundError:
-        continue
-    record = {"name": name, "version": distribution.version, "commit": None}
-    raw = distribution.read_text("direct_url.json")
-    if raw:
-        try:
-            direct = json.loads(raw)
-        except ValueError:
-            direct = {}
-        record["commit"] = (direct.get("vcs_info") or {}).get("commit_id")
-    records.append(record)
-print(json.dumps(records))
-"""
+        return json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise Unavailable(f"reviewed GNN pin reader printed no pin for {path}: {exc}") from exc
+
+
 
 
 def _run_text(command: list[str], *, what: str) -> str:
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        completed = subprocess.run(
+            command, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False
+        )
     except OSError as exc:
         raise Unavailable(f"{what}: {exc}") from exc
     if completed.returncode != 0:
@@ -273,73 +143,6 @@ def _run_text(command: list[str], *, what: str) -> str:
     return completed.stdout
 
 
-def locate_package(python: str) -> Path:
-    """Return the ``gnn`` package directory ``python`` would import, without importing it."""
-
-    output = _run_text(
-        [python, SAFE_PATH, "-c", LOCATE_EXPRESSION],
-        what=f"cannot locate the gnn package in {python}",
-    )
-    try:
-        located = json.loads(output)
-    except json.JSONDecodeError as exc:
-        raise Unavailable(f"cannot locate the gnn package in {python}: {exc}") from exc
-    if not located.get("module"):
-        raise Unavailable(
-            f"the gnn package is not installed in {python}; provision the pinned revision "
-            "(./run.sh gnn does) or pass --gnn-runtime"
-        )
-    locations = located.get("locations") or []
-    return (
-        Path(locations[0]).resolve() if locations else Path(located["module"]).resolve().parent
-    )
-
-
-def installed_revision(python: str) -> dict[str, Any]:
-    """Return the VCS commit the installer recorded for the ``gnn`` distribution.
-
-    ``direct_url.json`` carries ``vcs_info.commit_id`` only for an install from a
-    git URL; an editable or index install has no commit to compare and is
-    reported as ``unresolvable-offline`` rather than assumed to match.
-    """
-
-    output = _run_text(
-        [python, "-c", REVISION_PROGRAM], what=f"cannot read the installed gnn metadata in {python}"
-    )
-    try:
-        records = json.loads(output)
-    except json.JSONDecodeError as exc:
-        raise Unavailable(f"cannot read the installed gnn metadata in {python}: {exc}") from exc
-    commits = sorted({record["commit"] for record in records if record.get("commit")})
-    if not commits:
-        return {
-            "status": "unresolvable-offline",
-            "commit": None,
-            "detail": "the installer recorded no VCS commit (not installed from a git URL)",
-        }
-    if len(commits) > 1:
-        return {
-            "status": "conflicting",
-            "commit": None,
-            "detail": f"the installer recorded several commits {commits}",
-        }
-    return {"status": "verified", "commit": commits[0], "detail": "direct_url.json vcs_info.commit_id"}
-
-
-def revision_failures(revision: dict[str, Any], pin: dict[str, Any]) -> list[str]:
-    """Return failures when the installed runtime's recorded commit is not the pin."""
-
-    if revision.get("status") == "verified" and revision.get("commit") != pin["commit"]:
-        return [
-            f"{TAG_COMMIT_MISMATCH}: the installed runtime records commit "
-            f"{revision.get('commit')} but the pin records {pin['commit']}"
-        ]
-    if revision.get("status") == "conflicting":
-        return [
-            f"{TAG_COMMIT_MISMATCH}: the installed runtime metadata is ambiguous: "
-            f"{revision.get('detail')}"
-        ]
-    return []
 
 
 def remote_url(repository: str) -> str:
@@ -399,6 +202,7 @@ def tag_binding(
         completed = subprocess.run(
             ["git", "ls-remote", "--tags", remote_url(pin["repository"]), f"refs/tags/{tag}*"],
             capture_output=True,
+            stdin=subprocess.DEVNULL,
             text=True,
             check=False,
         )
@@ -475,27 +279,32 @@ def language_version_failures(
     return failures
 
 
-def run_probe(python: str, spec: Path, output: Path) -> dict[str, Any]:
-    """Run the pinned parser probe in a subprocess and return its payload."""
-
+def run_probe(
+    python: str, spec: Path, output: Path, *, pin: Path, source_args: list[str]
+) -> dict[str, Any]:
+    """Run the self-guarding probe; return only its exit-revalidated JSON."""
+    _run_text(
+        [
+            python, SAFE_PATH, str(PROBE), "--spec", str(spec.absolute()),
+            "--pin", str(pin.absolute()), "--output", str(output), *source_args,
+        ],
+        what=f"pinned parser probe failed with {python}",
+    )
     try:
-        completed = subprocess.run(
-            [python, SAFE_PATH, str(PROBE), "--spec", str(spec), "--output", str(output)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError as exc:
-        raise Unavailable(f"pinned parser probe could not run with {python}: {exc}") from exc
-    if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout).strip().splitlines()
-        tail = " | ".join(detail[-3:]) if detail else "no output"
-        raise Unavailable(
-            f"pinned parser probe failed with {python}: {tail}. Provide an interpreter that "
-            "has the GNN parser dependencies (a runtime installed from the pinned revision) "
-            "via --gnn-runtime."
-        )
-    return json.loads(output.read_text(encoding="utf-8"))
+        payload = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise Unavailable(f"pinned parser probe produced no receipt: {exc}") from exc
+    qualification = payload.get("source_qualification", {})
+    if not (
+        qualification.get("ok") is True
+        and qualification.get("imports_verified") is True
+        and qualification.get("preimport") is True
+        and qualification.get("status") == "qualified"
+        and qualification.get("commit") == source.COMMIT
+        and qualification.get("manifest_sha256") == source.MANIFEST_SHA256
+    ):
+        raise Unavailable("pinned parser probe did not complete source qualification")
+    return payload
 
 
 def run_julia_reader(julia: str, spec: Path) -> dict[str, str]:
@@ -700,6 +509,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pin", type=Path, default=GNN_PIN_PATH)
     parser.add_argument("--receipt", type=Path, default=DEFAULT_RECEIPT)
     parser.add_argument("--json", action="store_true", help="print the receipt to stdout")
+    source.add_arguments(parser)
     args = parser.parse_args(argv)
 
     if not args.gnn_runtime:
@@ -712,18 +522,24 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="actinf-rxinfer-gnn-") as directory:
         output = Path(directory) / "probe.json"
         try:
-            pin = read_pin(args.gnn_runtime, args.pin)
+            source_args = source.command_arguments(args)
+            pin = read_pin(args.gnn_runtime, args.pin, source_args=source_args)
             tag = tag_binding(pin, remote=args.verify_tag_remote, store=args.verify_tag_store)
             if (args.verify_tag_remote or args.verify_tag_store) and tag["status"] != "verified":
                 flag = "--verify-tag-remote" if args.verify_tag_remote else "--verify-tag-store"
                 raise Unavailable(f"{flag}: {tag['detail']}")
-            # Digests and the installer revision come before the parser runs, so
-            # a tampered parser is never reached by parsing first.
-            package_dir = locate_package(args.gnn_runtime)
-            _verify_digests(package_dir, pin, origin=args.gnn_runtime)
-            revision = installed_revision(args.gnn_runtime)
-            payload = run_probe(args.gnn_runtime, args.spec, output)
-            origin = f"installed runtime {args.gnn_runtime} ({package_dir})"
+            payload = run_probe(
+                args.gnn_runtime, args.spec, output, pin=args.pin, source_args=source_args
+            )
+            qualification = payload["source_qualification"]
+            package_dir = Path(qualification["package_root"])
+            admitted_origin = qualification["origin"]
+            revision = {
+                "status": "verified" if admitted_origin["vcs_verified"] else "explicit-source",
+                "commit": qualification["commit"],
+                "detail": admitted_origin,
+            }
+            origin = f"{admitted_origin['kind']} runtime {args.gnn_runtime} ({package_dir})"
         except Unavailable as exc:
             print(f"gnn validation not run: {exc}", file=sys.stderr)
             return 2
@@ -744,7 +560,6 @@ def main(argv: list[str] | None = None) -> int:
             package_dir=package_dir,
             tag=tag,
         )
-        failures.extend(revision_failures(revision, pin))
 
     receipt = {
         "ok": not failures,
@@ -757,6 +572,7 @@ def main(argv: list[str] | None = None) -> int:
         "parser_language_version": payload["parser"].get("version"),
         "tag_binding": tag,
         "revision": revision,
+        "source_qualification": qualification,
         "parser_success": payload["parser"]["success"],
         "semantic_valid": payload["semantic"].get("is_valid"),
         "consistency_score": payload["consistency"].get("consistency_score"),

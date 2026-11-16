@@ -79,8 +79,8 @@ end
                   (PARAMETERS.prior_a + sum(y)) / (PARAMETERS.prior_a + PARAMETERS.prior_b + n)
             @test mean(posterior) ≈ mean(reference) atol = 1e-8
             @test std(posterior) ≈ std(reference) atol = 1e-8
-            @test quantile(posterior, [0.025, 0.975]) ≈
-                  quantile(reference, [0.025, 0.975]) atol = 1e-8
+            @test map(Base.Fix1(quantile, posterior), [0.025, 0.975]) ≈
+                  map(Base.Fix1(quantile, reference), [0.025, 0.975]) atol = 1e-8
             @test quantile(reference, 0.025) <= PARAMETERS.theta_true <=
                   quantile(reference, 0.975)
         end

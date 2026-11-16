@@ -56,57 +56,47 @@ parser's view of the same document.
 # Installed pinned runtime
 GNN_RUNTIME_PYTHON=/path/to/venv/bin/python ./run.sh gnn
 
-# Provision from a local checkout instead of the pinned repository
-GNN_ROOT=/path/to/Generalized_Notation_Notation ./run.sh gnn
+# Explicit source admission (not installed-origin qualification)
+GNN_ORIGIN_MODE=source GNN_PACKAGE_ROOT=/path/to/gnn \
+    GNN_RUNTIME_PYTHON=/path/to/venv/bin/python ./run.sh gnn
 ```
 
-`./run.sh gnn` runs three commands in one environment. First the validator:
+Use `./run.sh gnn`; the arm commands have no second implementation here.
+First, the validator asks the independently checked standalone producer to
+normalize the unchanged pin, then runs the self-guarding parser probe in the
+selected runtime. Parsing, semantic validation, orientation and consistency
+calls stay inside `qualified_source`; JSON is published only after exit
+revalidation. The parent compares data with the unchanged model expectations
+and the Julia reader. Second, the producer's shared `check_importer` validates
+the pin, pointer and specifications under its own guarded lifetime. Last, the
+arm runs regressions with the same selected runtime.
 
-```bash
-python3 scripts/validate_gnn_spec.py --gnn-runtime <runtime>/bin/python \
-    --julia julia --verify-tag-remote --json
-```
+All launches require reviewed `GNN_BOOTSTRAP` and independently frozen complete
+`GNN_SOURCE_MANIFEST` inputs. Their SHA-256 identities are fixed in
+`scripts/gnn_source.py`; callers cannot bless target-derived manifests. The
+unchanged v5.1.0 pin and every recorded parser digest remain required. Installed
+mode also requires genuine matching Git PEP 610 and distribution/module
+ownership; absent provenance refuses rather than permitting unresolved evidence.
+Explicit source mode requires `GNN_ORIGIN_MODE=source`, an explicitly selected
+runtime and `GNN_PACKAGE_ROOT`, and reports `explicit-source` without installed
+VCS qualification.
 
-which reads the pin through `gnn.importers.read_pin` in that runtime,
-locates the installed package without importing it, verifies every recorded
-parser digest against it *before* the document is parsed, compares the
-installer's recorded VCS commit (`direct_url.json`) with the pin, and runs the
-model-conformance checks below. It runs first because the second command
-imports the parser and validates the document with it: nothing in the pinned
-package is imported for that before the digests are checked. Every subprocess
-the validator starts that imports the package runs with `-P`, so the working
-directory and `scripts/` stay off `sys.path` and the package whose digests are
-verified is the package the probe imports. `--julia`/`JULIA_BIN` adds the
-cross-language reader check. `--verify-tag-remote` resolves the pin's `tag`
-upstream with `git ls-remote` (the peeled commit of an annotated tag) and fails
-as `tag-commit-mismatch` when it names a different commit than the pin; it needs
-network access, and a remote that cannot answer ends the run as *not run*
-(exit `2`). `--verify-tag-store` resolves the same ref from an explicitly
-prepared Git store instead, for an offline run; the store must name the pin's
-repository as its single `origin`, and `./run.sh gnn` selects it when
-`GNN_TAG_STORE` is set. Without either flag nothing is resolved upstream and the
-receipt records `tag_binding.status` as `unresolvable-offline`; likewise an
-install without a recorded VCS commit is `unresolvable-offline` under
-`revision`, never a pass. Second, the estate's shared reader:
+`GNN_RUNTIME_PYTHON` selects the target interpreter; `--gnn-runtime` overrides
+its environment default for direct validator use. Installed mode alone retains
+the optional `uv` provisioning path from the canonical pinned repository.
+Local-checkout provisioning through `GNN_ROOT` is rejected before cache access
+or mutation: its genuine local Git PEP 610 URL cannot establish canonical
+repository provenance. A previously local-provisioned cache is not relabelled;
+select a fresh `ACTINF_GATE_DIR` for canonical provisioning, or an explicitly
+qualified existing runtime. Missing runtimes and failed installed admission
+never fall back to a checkout. `-P` excludes implicit cwd/script candidates;
+source mode deliberately binds its named package root.
 
-```bash
-python -P -m gnn.importers check --repo . --require-pointer \
-    --workflow .github/workflows/ci.yml --job gnn-conformance
-```
-
-That reader is `src/gnn/importers.py` from the pinned revision; it reads
-`specs/gnn-pin.json`, requires `.github/GNN.md` to name the pin, the revision,
-the workflow and the job key, and validates `specs/coin_flip.gnn.md` with the
-pinned parser. This repository keeps no second copy of that logic. Last,
-`./run.sh gnn` runs the offline unit tests in
-`test/test_validate_gnn_spec.py` and `test/test_gnn_verification_order.py`
-(standard library, no network).
-
-The runtime is `GNN_RUNTIME_PYTHON` when it is set; otherwise the arm installs
-the pinned commit into `.gate/gnn-runtime` with `uv` (the path CI takes) and
-caches it there by commit. `GNN_ROOT` names a `Generalized_Notation_Notation`
-checkout to install that commit from instead of the pinned repository, so a live
-working copy under development is never imported.
+The gate uses a live tag check or an explicitly prepared `GNN_TAG_STORE` whose
+single upstream origin and peeled tag match the pin. A missing tag, incorrect
+origin or mismatched commit fails. Direct validator use without a tag option
+records `tag_binding.status=unresolvable-offline`, not upstream tag verification.
+See [`gate.md`](gate.md) for offline/cache rules and required launch inputs.
 
 Exit codes are `0` pass, `1` conformance failure, and `2` pinned runtime,
 requested Julia reader, or requested remote tag resolution unavailable — an unavailable run is reported as not run,
@@ -118,17 +108,17 @@ The check is the `gnn-conformance` job, displayed as `gnn conformance (pinned)`,
 in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). The job installs
 Python 3.12 and `uv` through
 `ActiveInferenceInstitute/.github/.github/actions/setup-python-uv@7159e67315330aac8e414aebae0ad1e999a41448`
-(pinned by commit), sets up Julia, and runs `./run.sh gnn`, which provisions the
-pin and performs the validation. The job is a required check and is never
-converted into a skip when the runtime cannot be provisioned. What the job
-parses, and what it deliberately does not scan, is recorded in
+(pinned by commit), sets up Julia, and runs `./run.sh gnn`. The launch must
+separately supply both reviewed resource files; local source-mode acceptance
+does not establish hosted delivery. Missing resources or runtime fail, not skip.
+What the job parses, and what it deliberately does not scan, is recorded in
 [`.github/GNN.md`](../.github/GNN.md).
 
 ## What the validation checks
 
-1. The pin: `gnn.importers` accepts `specs/gnn-pin.json` as a
-   `gnn-importer-pin/v1` record that names the upstream repository, and every
-   parser file digest it records matches the installed package.
+1. The standalone producer accepts `specs/gnn-pin.json` as a
+   `gnn-importer-pin/v1` record naming the exact upstream release. Its complete
+   package manifest and every pin-declared parser digest match the selected source.
 2. The document parses with the pinned `gnn` parser with no errors or warnings,
    and the parser version equals the pinned tag. The parser is imported from the
    digest-verified package, the pin's `language_version` equals both the
@@ -146,7 +136,9 @@ parses, and what it deliberately does not scan, is recorded in
    checker reports it as consistent.
 
 The receipt also records `language_version`, `parser_language_version`,
-`tag_binding` and `revision`. It is written to `docs/_build/gnn/validation-receipt.json`
+`tag_binding`, `revision` and `source_qualification`. Installed revision is
+verified only for admitted `installed-vcs` origin; source mode is explicitly
+labeled. The receipt is written to `docs/_build/gnn/validation-receipt.json`
 (`--receipt` overrides it).
 
 ## GNN–FEP migration: adopted
@@ -162,22 +154,37 @@ This repository's pin moved from `v5.0.3`
 reader and could not import it; `v5.1.0` contains `src/gnn/importers.py`, so
 the cutover happened in the same change that advanced the pin:
 
-- `scripts/validate_gnn_spec.py` no longer parses the pin's shape. It reads the
-  pin with `gnn.importers.read_pin` in the pinned runtime and keeps only the
-  checks that are this member's own: the parser digests, the parsed model, and
-  the agreement of the pinned parser, the script's reader and
-  `src/spec_reader.jl`.
-- The pin-shape unit tests (`test/test_gnn_pin.py`) are gone. The shared reader
-  reports `pin-*`, `spec-*` and `pointer-*` findings for those shapes.
-- `./run.sh gnn` calls `python -P -m gnn.importers check --repo .
-  --require-pointer --workflow .github/workflows/ci.yml --job gnn-conformance`
-  in the runtime it builds, after the model-conformance step: that reader
-  imports the pinned parser, so the digest verification runs first.
-- The `git archive` materialization path (`--gnn-root`, `GNN_PYTHON`) is gone
-  with the second reader. `GNN_ROOT` now names the checkout the pinned runtime
-  is installed from, so both steps of the arm run in one installed revision.
-- `.github/GNN.md` names the pin, the new revision, the workflow and the job
-  key, which is what makes `--require-pointer` a pass.
+- The unchanged v5.1.0 pin and parser digests remain required. The independently
+  checked standalone producer owns pin normalization and shared checking; no
+  consumer pin parser was restored.
+- The validator retains member-specific model/reader comparisons and consumes
+  exit-qualified JSON from selected-runtime children. Obsolete local
+  digest/revision admission programs were removed, not kept as fallbacks.
+- `run.sh` remains the sole arm implementation. Model conformance precedes the
+  standalone producer checker; each real GNN verdict has its own qualified lifetime.
+- Canonical installed provisioning rejects `GNN_ROOT` before cache mutation.
+  Explicit source admission uses `GNN_ORIGIN_MODE=source` and `GNN_PACKAGE_ROOT`,
+  never an implicit fallback.
+- `.github/GNN.md` retains the pin, revision, workflow and job identifiers.
+  Historical migration and gate receipts retain their original bindings.
+
+## Bootstrap admission boundary
+
+The adapter checks bootstrap SHA-256
+`f638d4c01fe7de31e43d793e59bf382d0c3d1a82f365c59238334a2b40adfb37`
+and executes those same bytes under a non-GNN identity. It binds complete
+v5.1.0 manifest SHA-256
+`43b33c0b2b40386afa3f306fec4cc13bc1fd7c3b570fbf11d5008bad5c8e6b51`
+before target imports. The producer guards real parser/checker work and
+revalidates package content, module ownership and origin at exit; the adapter
+also rechecks the independent resources.
+
+Governed local real-source/process regressions exercise this boundary and the
+unchanged model comparisons in explicit source mode. Installed distribution
+provenance, full tag/Julia GNN-arm execution and hosted delivery remain separate
+qualification obligations. Neither source admission nor historical receipts
+attest new scientific results, dependency trust, publisher safety or hostile
+filesystem isolation. Do not change the model or pin merely to obtain a pass.
 
 ## Scope
 

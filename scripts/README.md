@@ -16,21 +16,17 @@ Gate arms and the GNN validation. Every script here is called by
   `docs`. It times each arm once, writes `docs/_generated/gate-receipt.json`,
   renders `docs/_generated/gate.md` from it, and with `--check` fails when the
   committed table disagrees with the receipt.
-- [`validate_gnn_spec.py`](validate_gnn_spec.py) — the GNN model-conformance
-  gate. It reads `specs/gnn-pin.json` with `gnn.importers.read_pin` in the
-  pinned runtime, verifies the installed parser files against the pin's
-  digests *before* parsing the document, compares the installer's recorded
-  commit and (with `--verify-tag-remote`, or `--verify-tag-store` for an
-  offline run from a prepared Git store) the pin's tag with the pinned commit
-  (`tag-commit-mismatch`), checks the pin's language version against the
-  document and the parser, and compares the result with what
-  `src/spec_reader.jl` reads and with the expectations in the script. Every
-  built-in subprocess that imports the pinned package runs with `-P`, so the
-  working directory and `scripts/` are never on `sys.path` and the package it
-  verifies is the package the probe imports.
-- [`gnn_parser_probe.py`](gnn_parser_probe.py) — the module that imports the
-  upstream parser; the validator runs it as a subprocess in the pinned runtime
-  (with `-P`, for the same reason).
+- [`gnn_source.py`](gnn_source.py) — binds the independently reviewed bootstrap
+  and complete v5.1.0 manifest. It executes the same checked bytes as a non-GNN
+  module and delegates pin normalization, source/origin admission and checking
+  to the producer; it is not a second validator.
+- [`validate_gnn_spec.py`](validate_gnn_spec.py) — orchestrates checked pin and
+  guarded parser-probe children in the selected runtime, then compares JSON
+  with unchanged model expectations. Tag/store, language-version and optional
+  Julia-reader checks remain.
+- [`gnn_parser_probe.py`](gnn_parser_probe.py) — imports no GNN at consumer
+  module load. Direct Python and CLI entries keep real GNN imports and verdict
+  calls inside the producer lifetime and publish only exit-revalidated JSON.
 
 Run through the entry point, which supplies the environment:
 
@@ -40,6 +36,9 @@ Run through the entry point, which supplies the environment:
 ./run.sh gnn
 ```
 
-The validator's runtime comes from `--gnn-runtime`/`GNN_RUNTIME_PYTHON`, or from
-the runtime `./run.sh gnn` provisions with `uv` (from `GNN_ROOT` when that names
-a checkout). Without one the script exits `2` and says the check did not run.
+`--gnn-runtime`/`GNN_RUNTIME_PYTHON` selects the target interpreter. Both
+independent resources are required. Installed mode requires genuine matching
+distribution/PEP 610/full-content admission; explicit source mode requires a
+named package artifact and runtime. Missing resources/runtime/admission exit
+`2`. Local-checkout provisioning through `GNN_ROOT` is rejected before cache
+mutation; explicit source admission uses `GNN_PACKAGE_ROOT`, never a fallback.

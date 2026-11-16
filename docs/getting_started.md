@@ -34,6 +34,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.status()'
 - `src/spec_reader.jl` — the dependency-free document reader.
 - `examples/coin_flip.jl` — the runnable example.
 - `test/runtests.jl` — the test suite.
+- `test/test_run_gate.py` — offline dispatcher and provisioning-cache regressions; these do not substitute for Julia or pinned-parser qualification.
 - `scripts/validate_gnn_spec.py` — the pinned-parser conformance check.
 - `run.sh` — the gate entry point; see [`gate.md`](gate.md).
 
@@ -68,6 +69,8 @@ Run the tests:
 `./run.sh` is the gate entry point; it runs the commands CI runs, and
 [`gate.md`](gate.md) lists every arm. `./run.sh` with no argument runs `lint`
 and then `fast`.
+The `full` arm overrides an inherited `ACTINF_RXINFER_TEST_ARM=fast`, so it
+cannot silently omit message-passing testsets.
 
 Validate the committed document with the pinned upstream parser:
 
@@ -75,12 +78,16 @@ Validate the committed document with the pinned upstream parser:
 ./run.sh gnn
 ```
 
-That arm runs the shared `gnn.importers` reader and then the model-conformance
-script in one environment: `GNN_RUNTIME_PYTHON` when it is set, and otherwise
-the revision in `specs/gnn-pin.json` installed with `uv` (`GNN_ROOT` selects a
-local checkout to install it from). Without a runtime it exits `2` and reports
-the check as not run. See [`gnn.md`](gnn.md) for the pin, the validated modes,
-and the exit codes.
+The arm runs model conformance, the standalone reviewed producer checker and
+regressions in that order. Supply independently frozen `GNN_BOOTSTRAP` and
+`GNN_SOURCE_MANIFEST` inputs first. Installed mode uses `GNN_RUNTIME_PYTHON`
+or canonical-repository `uv` provisioning. Local-checkout provisioning through
+`GNN_ROOT` is rejected before cache mutation because it cannot prove that origin.
+`GNN_ORIGIN_MODE=source` instead requires an explicit runtime and
+`GNN_PACKAGE_ROOT`. Both modes guard all GNN imports and verdict calls through
+exit revalidation. Missing resources or unavailable admission exit `2`, never
+pass. Installed-origin failure does not enable source mode. See
+[`gnn.md`](gnn.md) and [`gate.md`](gate.md) for resource identities and proof limits.
 
 For upstream usage documentation and runnable examples, see [RxInfer documentation](https://docs.rxinfer.com/) and [RxInfer examples](https://examples.rxinfer.com/).
 

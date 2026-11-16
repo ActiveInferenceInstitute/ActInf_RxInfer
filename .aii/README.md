@@ -1,7 +1,7 @@
 # .aii — InstituteOS sidecar
 
-This folder is the committed [InstituteOS](https://github.com/ActiveInferenceInstitute/InstituteOS)
-sidecar for **`ActiveInferenceInstitute/ActInf_RxInfer`**. It records curated institutional metadata that the GitHub
+This folder is the committed InstituteOS sidecar for **`ActiveInferenceInstitute/ActInf_RxInfer`**.
+It records curated institutional metadata that the GitHub
 API cannot provide — identity, category, maturity, ecosystem relations, key artifacts,
 provenance, and portable tasks — so InstituteOS can federate a unified view across
 Institute repositories without touching this project's own content. The schema is
@@ -47,8 +47,8 @@ Institute repositories without touching this project's own content. The schema i
 
 ## Links
 
-- **github:** https://github.com/ActiveInferenceInstitute/ActInf_RxInfer
-- **website:** https://www.activeinference.org
+- **github:** <https://github.com/ActiveInferenceInstitute/ActInf_RxInfer>
+- **website:** <https://www.activeinference.org>
 
 ## Validate
 
