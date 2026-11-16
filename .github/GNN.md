@@ -10,28 +10,24 @@ The arm reads `specs/gnn-pin.json` (`gnn-importer-pin/v1`), which pins
 with SHA-256 digests for the parser files under `src/gnn/`, including the shared
 reader `src/gnn/importers.py`.
 
-The job installs Python 3.12 and `uv` through
-`ActiveInferenceInstitute/.github/.github/actions/setup-python-uv@7159e67315330aac8e414aebae0ad1e999a41448`,
-sets up Julia, and runs `./run.sh gnn`. With no runtime in the environment the
-arm installs the pinned commit into `.gate/gnn-runtime` with `uv`, then runs
-three steps in that one environment:
+The job retains its pinned shared Python/uv setup action and Julia setup, and
+runs only `./run.sh gnn`. Its launch must additionally supply independently
+reviewed `GNN_BOOTSTRAP` and `GNN_SOURCE_MANIFEST` files; no unchecked download
+or private local artifact path is a hosted-resource contract.
 
-1. `scripts/validate_gnn_spec.py --gnn-runtime … --julia julia --json` —
-   verifies the installed parser file digests against the pin and checks the
-   parsed model against the constants that script records: model name, variable
-   dimensions, connection graph, scalar declarations, equation fragments,
-   ontology annotations, required sections and a static time specification,
-   plus the pinned semantic validator and consistency checker. Scalars are
-   cross-read by the pinned parser, the script's own regular expressions and the
-   Julia reader in `src/spec_reader.jl`, and the parser version must equal the
-   pinned tag. This step runs first because step 2 imports the parser, and each
-   subprocess of it runs with `-P` so the package whose digests are verified is
-   the package the probe imports.
-2. `python -P -m gnn.importers check --repo . --require-pointer --workflow
-   .github/workflows/ci.yml --job gnn-conformance` — the estate's shared reader
-   validates this pin, this pointer and `specs/coin_flip.gnn.md`.
-3. The validator's offline unit tests, `test/test_validate_gnn_spec.py` and
-   `test/test_gnn_verification_order.py`.
+The arm first runs model conformance: the reviewed producer normalizes the
+unchanged pin, and a fresh selected-runtime probe performs parser and verdict
+imports/calls inside source qualification through exit revalidation. Scalars
+still agree across the pinned parser, local regex reader and Julia reader.
+Next, the standalone producer's shared checker validates this pin, this
+pointer and `specs/coin_flip.gnn.md` under its own guarded lifetime. Last,
+regressions cover real producer-source/process admission and dispatch/cache
+behavior.
+
+Installed mode requires genuine matching Git PEP 610, distribution/module
+ownership and complete content. Explicit source mode requires an explicit
+runtime/package artifact and reports its narrower scope. Failed installed
+admission never falls back to source. `run.sh` owns exact commands and tag selection.
 
 The arm parses only `specs/coin_flip.gnn.md`; a model added elsewhere is
 invisible to the model-conformance step, and the shared reader's specification

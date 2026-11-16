@@ -1,31 +1,27 @@
-"""Extract one GNN document with the pinned upstream parser and print JSON.
+"""Parse one document only inside the producer's qualified source lifetime.
 
-This module imports the upstream ``gnn`` package. It is executed as a
-subprocess by ``scripts/validate_gnn_spec.py`` with the interpreter of the
-runtime installed from ``specs/gnn-pin.json``, so the parser that runs is the
-pinned revision and never a live checkout; that script also verifies the
-installed parser file digests the pin records. It is run with ``-P`` so the
-script directory cannot put a stand-in ``gnn`` ahead of the verified package:
-the digests and the import resolve the same package.
-
-Usage (normally invoked by the validator, not by hand):
-
-    <pinned-runtime>/bin/python -P scripts/gnn_parser_probe.py --spec <file>
+Run with the selected runtime and -P. GNN_BOOTSTRAP and GNN_SOURCE_MANIFEST
+select independently reviewed, digest-bound producer resources. Direct CLI and
+Python callers receive the same pre-import admission and exit revalidation as
+the validator's subprocess; importing this consumer module imports no GNN.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 from pathlib import Path
 from typing import Any
 
-from gnn import __version__ as gnn_version
-from gnn.parsers.markdown_parser import MarkdownGNNParser
-from gnn.validation.consistency_checker import check_consistency
-from gnn.validation.orientation import check_b_orientation
-from gnn.validation.semantic_validator import SemanticValidator
+ROOT = Path(__file__).resolve().parents[1]
+_source_spec = importlib.util.spec_from_file_location(
+    "actinf_rxinfer_gnn_source", ROOT / "scripts" / "gnn_source.py"
+)
+source = importlib.util.module_from_spec(_source_spec)
+sys.modules[_source_spec.name] = source
+_source_spec.loader.exec_module(source)
 
 
 def _jsonable(value: Any) -> Any:
@@ -38,54 +34,64 @@ def _jsonable(value: Any) -> Any:
     return str(value)
 
 
-def probe(spec: Path) -> dict[str, Any]:
-    """Parse and validate ``spec`` with the imported (pinned) parser."""
+def probe(spec: Path, *, admission: argparse.Namespace) -> dict[str, Any]:
+    """Return JSON data only after all imports, calls and exit checks finish."""
+    with source.qualified_runtime(admission) as qualification:
+        from gnn import __version__ as gnn_version
+        from gnn.parsers.markdown_parser import MarkdownGNNParser
+        from gnn.validation.consistency_checker import check_consistency
+        from gnn.validation.orientation import check_b_orientation
+        from gnn.validation.semantic_validator import SemanticValidator
 
-    parser = MarkdownGNNParser()
-    result = parser.parse_file(str(spec))
-    model = result.model
-    semantic = SemanticValidator().validate(spec.read_text(encoding="utf-8"))
-    orientation = check_b_orientation(spec)
-    consistency = check_consistency(spec)
-    return {
-        "gnn_version": gnn_version,
-        "gnn_module": __import__("gnn").__file__,
-        "parser": {
-            "success": bool(result.success),
-            "errors": list(result.errors),
-            "warnings": list(result.warnings),
-            "model_name": model.model_name,
-            "version": model.version,
-            "variables": [
-                {
-                    "name": variable.name,
-                    "dimensions": list(variable.dimensions),
-                    "data_type": str(variable.data_type),
-                }
-                for variable in model.variables
-            ],
-            "connections": [
-                {
-                    "sources": list(connection.source_variables),
-                    "targets": list(connection.target_variables),
-                    "type": str(connection.connection_type),
-                }
-                for connection in model.connections
-            ],
-            "ontology_mappings": [
-                {"variable": mapping.variable_name, "term": mapping.ontology_term}
-                for mapping in model.ontology_mappings
-            ],
-            "parameters": {
-                parameter.name: _jsonable(parameter.value) for parameter in model.parameters
+        parser = MarkdownGNNParser()
+        result = parser.parse_file(str(spec))
+        model = result.model
+        semantic = SemanticValidator().validate(spec.read_text(encoding="utf-8"))
+        orientation = check_b_orientation(spec)
+        consistency = check_consistency(spec)
+        payload = {
+            "gnn_version": gnn_version,
+            "gnn_module": __import__("gnn").__file__,
+            "parser": {
+                "success": bool(result.success),
+                "errors": list(result.errors),
+                "warnings": list(result.warnings),
+                "model_name": model.model_name,
+                "version": model.version,
+                "variables": [
+                    {
+                        "name": variable.name,
+                        "dimensions": list(variable.dimensions),
+                        "data_type": str(variable.data_type),
+                    }
+                    for variable in model.variables
+                ],
+                "connections": [
+                    {
+                        "sources": list(connection.source_variables),
+                        "targets": list(connection.target_variables),
+                        "type": str(connection.connection_type),
+                    }
+                    for connection in model.connections
+                ],
+                "ontology_mappings": [
+                    {"variable": mapping.variable_name, "term": mapping.ontology_term}
+                    for mapping in model.ontology_mappings
+                ],
+                "parameters": {
+                    parameter.name: _jsonable(parameter.value) for parameter in model.parameters
+                },
+                "sections": sorted(model.raw_sections),
+                "time_specification": _jsonable(model.time_specification),
             },
-            "sections": sorted(model.raw_sections),
-            "time_specification": _jsonable(model.time_specification),
-        },
-        "semantic": _jsonable(semantic),
-        "orientation": _jsonable(orientation),
-        "consistency": _jsonable(consistency),
-    }
+            "semantic": _jsonable(semantic),
+            "orientation": _jsonable(orientation),
+            "consistency": _jsonable(consistency),
+        }
+        # Finish conversion while GNN objects still belong to the active scope.
+        payload = json.loads(json.dumps(payload))
+    payload["source_qualification"] = qualification
+    return payload
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -94,8 +100,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--spec", type=Path, required=True)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--pin", type=Path, default=source.PIN_PATH)
+    source.add_arguments(parser)
     args = parser.parse_args(argv)
-    payload = probe(args.spec)
+    try:
+        payload = probe(args.spec, admission=args)
+    except source.Unavailable as exc:
+        print(f"gnn parser probe not run: {exc}", file=sys.stderr)
+        return 2
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

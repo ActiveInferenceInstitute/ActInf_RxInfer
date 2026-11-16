@@ -8,8 +8,9 @@ for `ActiveInferenceInstitute/ActInf_RxInfer`; `config.yaml` is its single sourc
 - Keep `schema: aii-sidecar/v1` and bump `meta.updated` whenever the sidecar changes.
 - Only curated metadata belongs here. Never duplicate GitHub-API facts (stars, size,
   language) and never copy repository content into the sidecar.
-- `artifacts[].path`, `provenance.releases_manifest`, and `docs[]` are validated to
-  exist. Keep them repository-relative and current.
+- `artifacts[].path` and `provenance.releases_manifest` are repository-relative.
+- `docs[]` paths are relative to `.aii/`, not the repository root.
+- Keep every declared path current; validation checks that it exists.
 - `ecosystem.relations[].repo` must be `owner/repo`; use the relation vocabulary in
   the schema (`references`, `referenced-by`, `derived-from`, `feeds`, `documents`,
   `mirrors`, `depends-on`).

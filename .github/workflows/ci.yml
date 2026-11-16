@@ -64,13 +64,11 @@ jobs:
       - name: Run ./run.sh docs
         run: ./run.sh docs
 
-  # Runs the shared gnn.importers reader over specs/gnn-pin.json,
-  # .github/GNN.md and specs/coin_flip.gnn.md, then validates the document
-  # with the GNN revision pinned in specs/gnn-pin.json and checks that the
-  # dependency-free Julia reader in src/spec_reader.jl reads the same
-  # declarations. The job runs the same arm a local run does: ./run.sh gnn
-  # provisions the pinned revision into its own runtime and digest-verifies
-  # the parser files before parsing.
+  # The single run.sh gnn arm runs model conformance, the standalone
+  # reviewed producer checker and regressions in the selected runtime.
+  # Both independent resource files must be admitted by the launch.
+  # Guarded imports/verdicts include exit revalidation; explicit-source
+  # evidence is not installed-distribution qualification.
   gnn-conformance:
     timeout-minutes: 120
     name: gnn conformance (pinned)

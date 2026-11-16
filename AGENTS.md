@@ -8,7 +8,7 @@ This repository is a small public Julia project environment for Active Inference
 - The generative model is declared in [`specs/coin_flip.gnn.md`](specs/coin_flip.gnn.md) (Generalized Notation Notation) and is the single source of truth for the prior, observation count, and seed.
 - The package is `src/ActInf_RxInfer.jl`; `src/spec_reader.jl` contains the dependency-free document reader and must not gain `using` statements.
 - The runnable example is `examples/coin_flip.jl`; the test suite is `test/runtests.jl`; the gate entry point is `run.sh`; CI is `.github/workflows/ci.yml` and runs `run.sh` arms.
-- The upstream parser revision used by the validation gate is recorded in [`specs/gnn-pin.json`](specs/gnn-pin.json). The pin, the pointer and the document are validated by the shared `gnn.importers` reader from that pinned revision, run by `run.sh gnn`; this repository keeps no copy of it.
+- The unchanged upstream revision is recorded in [`specs/gnn-pin.json`](specs/gnn-pin.json). The independently checked standalone producer normalizes the pin and checks the pin/pointer/document. `scripts/gnn_source.py` freezes the bootstrap and complete matching-manifest digests; target imports and verdict calls require the producer's qualified lifetime. `run.sh` is the sole arm authority.
 - The public license is [MIT](LICENSE).
 - Documentation starts at [`docs/index.md`](docs/index.md).
 - Review scope and deferred work are tracked in [`TO-DO.md`](TO-DO.md).
@@ -23,6 +23,8 @@ This repository is a small public Julia project environment for Active Inference
 - When source code or tests change, update the getting-started guide and this file.
 - Add gate behavior to `run.sh` and document it in `docs/gate.md`; never put a second copy of an arm's command in the workflow or the docs.
 - Do not hand-write measured numbers. `./run.sh measure` writes `docs/_generated/gate.md`, and the `docs` arm fails when the table disagrees with its receipt.
+- `full` must explicitly select the full suite regardless of inherited `ACTINF_RXINFER_TEST_ARM`. Provisioning must invalidate stale success markers before mutation and publish a replacement only after every step succeeds; `test/test_run_gate.py` covers these transitions.
+- Keep checked-bootstrap and complete-manifest admission across every direct and child entry. Execute the same checked bytes under a non-GNN identity and keep actual GNN calls inside qualification through exit revalidation. Installed-origin failure never authorizes source fallback. Explicit-source proof does not certify an installed runtime, hosted delivery or scientific execution.
 - Do not commit secrets, credentials, private paths, generated local manifests, or machine-specific artifacts. `Manifest.toml` and `docs/_build/` stay ignored.
 
 ## Verification
@@ -39,10 +41,12 @@ the same script (`docs/gate.md` documents each arm, CI job, and environment).
 ./run.sh measure                                     # refresh docs/_generated/gate.md
 ```
 
-Report each arm as it is, including "not run". The `gnn` arm needs a runtime:
-`GNN_RUNTIME_PYTHON` for an installed one, or `uv` to provision the pin (from
-`GNN_ROOT` when that names a checkout). Without one it exits `2` and prints that
-the check was not run; that is not a pass.
+Report every arm as it is, including "not run". The GNN arm requires independent
+`GNN_BOOTSTRAP` and `GNN_SOURCE_MANIFEST` resources. Installed mode selects
+`GNN_RUNTIME_PYTHON` or uses the existing `uv` provisioning path; genuine
+distribution ownership, exact Git PEP 610 and complete content must pass.
+Explicit `GNN_ORIGIN_MODE=source` requires a runtime and `GNN_PACKAGE_ROOT`
+and reports narrower evidence. Missing resources or admission exit `2`, never pass.
 The GNN arm checks the live tag by default. For an offline launch, prepare
 the pinned tag in a Git store with the upstream origin and pass
 `GNN_TAG_STORE` as described in [the gate guide](docs/gate.md).
