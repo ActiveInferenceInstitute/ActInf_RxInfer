@@ -31,4 +31,4 @@ are never edited by hand.
 - [Citation metadata](../CITATION.cff)
 - [Open and completed review items](../TO-DO.md)
 - [Documentation review log](../REVIEW_LOG_2026-08-02.md)
-- [CI workflow and its job names](../.github/README.md)
+- [CI workflow and its job names](../.github/WORKFLOWS.md)
